@@ -20,10 +20,7 @@ class InputDataAnakPage extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // LOGO
-                Image.asset(
-                  'assets/images/raywise_logo.png',
-                  height: 80,
-                ),
+                Image.asset('assets/images/raywise_logo.png', height: 80),
 
                 const SizedBox(height: 16),
 
@@ -109,32 +106,15 @@ class InputDataAnakPage extends StatelessWidget {
                 ),
 
                 const Spacer(),
-
-                // ===== BOTTOM NAV =====
-                Container(
-                  height: 64,
-                  color: const Color(0xFFB88700),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: const [
-                      _NavItem(Icons.home, 'Home'),
-                      _NavItem(Icons.history, 'History'),
-                      _NavItem(Icons.person, 'Profile'),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
 
           // ===== BONEKA KECIL KIRI BAWAH =====
           Positioned(
-            left: -55,
-            bottom: 42,
-            child: Image.asset(
-              'assets/images/boneka2.png',
-              height: 170,
-            ),
+            left: -57,
+            bottom: -30,
+            child: Image.asset('assets/images/boneka2.png', height: 200),
           ),
         ],
       ),
@@ -169,31 +149,6 @@ class InputDataAnakPage extends StatelessWidget {
                 borderSide: BorderSide.none,
               ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _NavItem(this.icon, this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Colors.white),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
           ),
         ),
       ],

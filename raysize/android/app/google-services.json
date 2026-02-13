@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550600871844",
+    "project_id": "raysize",
+    "storage_bucket": "raysize.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550600871844:android:dd520bbaf7b02b3f407b31",
+        "android_client_info": {
+          "package_name": "com.example.raysize"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDuJ4iXM00cc5V0MLLaYUngoLHHnjZgBo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

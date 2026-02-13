@@ -1,97 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:raysize/auth/login_page.dart';
+import 'package:raysize/admin/admin_main_page.dart';
+import 'package:raysize/home_host_page.dart';
+import 'package:raysize/home_admin_page.dart';
+import 'package:raysize/host/host_main_page.dart';
+import 'register_page.dart';
 
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-
+class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
 
-  String selectedRole = "hostlive";
-
-  Future<void> register() async {
-
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password tidak sama")),
-      );
-      return;
-    }
-
+  Future<void> login() async {
     try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
 
-      UserCredential userCredential =
-          await FirebaseAuth.instance
-              .createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      await FirebaseFirestore.instance
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
-          .set({
-        'email': emailController.text.trim(),
-        'role': selectedRole,
-      });
+          .get();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-  const SnackBar(content: Text("Register Berhasil, silakan login")),
-);
+      String role = userDoc['role'];
 
-// 🔥 Delay sedikit supaya snackbar terlihat
-Future.delayed(const Duration(seconds: 1), () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const LoginPage()),
-  );
-});
-
-
+      if (role == "admin") {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminMainPage()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HostMainPage()),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login gagal: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
     final size = MediaQuery.of(context).size;
     final cardWidth = size.width * 0.82;
-    final cardHeight = size.height * 0.55;
+    final cardHeight = size.height * 0.50;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFFFF1C1),
       body: Stack(
         children: [
-
           SafeArea(
             child: Column(
               children: [
-
                 const SizedBox(height: 39),
 
-                Image.asset(
-                  'assets/images/raywise_logo.png',
-                  height: 80,
-                ),
+                Image.asset('assets/images/raywise_logo.png', height: 80),
 
                 const SizedBox(height: 10),
 
                 const Text(
-                  'REGISTER',
+                  'LOGIN',
                   style: TextStyle(
                     fontSize: 27,
                     letterSpacing: 2.5,
@@ -113,7 +94,6 @@ Future.delayed(const Duration(seconds: 1), () {
                     ),
                     child: Stack(
                       children: [
-
                         Align(
                           alignment: const Alignment(0, 0.4),
                           child: Opacity(
@@ -129,51 +109,13 @@ Future.delayed(const Duration(seconds: 1), () {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-
                             _field("Email", emailController),
                             const SizedBox(height: 12),
 
-                            _field("Password", passwordController, isPassword: true),
-                            const SizedBox(height: 12),
-
-                            _field("Re-Enter Password", confirmPasswordController, isPassword: true),
-                            const SizedBox(height: 12),
-
-                            const Text(
-                              "Role",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-
-                            DropdownButtonFormField(
-                              value: selectedRole,
-                              items: const [
-                                DropdownMenuItem(
-                                  value: "admin",
-                                  child: Text("Admin"),
-                                ),
-                                DropdownMenuItem(
-                                  value: "hostlive",
-                                  child: Text("Host Live"),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedRole = value!;
-                                });
-                              },
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFFFFF6CC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
+                            _field(
+                              "Password",
+                              passwordController,
+                              isPassword: true,
                             ),
 
                             const Spacer(),
@@ -183,7 +125,7 @@ Future.delayed(const Duration(seconds: 1), () {
                                 width: 150,
                                 height: 44,
                                 child: ElevatedButton(
-                                  onPressed: register,
+                                  onPressed: login,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFB88700),
                                     shape: RoundedRectangleBorder(
@@ -191,13 +133,32 @@ Future.delayed(const Duration(seconds: 1), () {
                                     ),
                                   ),
                                   child: const Text(
-                                    'Register',
+                                    'Login',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.white,
                                     ),
                                   ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            Center(
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const RegisterPage(),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  "Belum punya akun? Register",
+                                  style: TextStyle(color: Colors.black),
                                 ),
                               ),
                             ),
@@ -209,8 +170,6 @@ Future.delayed(const Duration(seconds: 1), () {
                 ),
 
                 const Spacer(),
-
-              
               ],
             ),
           ),
@@ -218,17 +177,18 @@ Future.delayed(const Duration(seconds: 1), () {
           Positioned(
             left: -57,
             bottom: -30,
-            child: Image.asset(
-              'assets/images/boneka2.png',
-              height: 250,
-            ),
+            child: Image.asset('assets/images/boneka2.png', height: 250),
           ),
         ],
       ),
     );
   }
 
-  Widget _field(String label, TextEditingController controller, {bool isPassword = false}) {
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    bool isPassword = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -264,4 +224,3 @@ Future.delayed(const Duration(seconds: 1), () {
     );
   }
 }
-
