@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:raysize/detail_pakaian.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InputDataPakaianPage extends StatefulWidget {
   const InputDataPakaianPage({super.key});
@@ -12,22 +14,109 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
   final namaController = TextEditingController();
   final jenisController = TextEditingController();
 
-  String selectedSizeType = "XS - XL";
+  // 🔹 MASTER LIST
+  final List<String> hurufSizes = [
+    "NB",
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "3XL",
+    "4XL",
+  ];
+
+  final List<String> angkaSizes = [
+    "70",
+    "80",
+    "90",
+    "100",
+    "110",
+    "120",
+    "130",
+    "140",
+    "150",
+  ];
+
+  final List<String> bulanSingle = [
+    "3M",
+    "6M",
+    "9M",
+    "12M",
+    "18M",
+    "24M",
+    "36M",
+  ];
+
+  final List<String> bulanRange = [
+    "0-3M",
+    "3-6M",
+    "6-9M",
+    "9-12M",
+    "12-18M",
+    "18-24M",
+    "24-36M",
+  ];
+
+  final List<String> tahunSizes = [
+    "1Y",
+    "2Y",
+    "3Y",
+    "4Y",
+    "5Y",
+    "6Y",
+    "7Y",
+    "8Y",
+    "9Y",
+    "10Y",
+  ];
+
+  String selectedCategory = "Huruf";
+  String? bulanType;
+  String? startSize;
+  String? endSize;
+
   List<String> generatedSizes = [];
 
-  final Map<String, List<String>> sizeOptions = {
-    "XS - XL": ["XS", "S", "M", "L", "XL"],
-    "S - XXL": ["S", "M", "L", "XL", "XXL"],
-    "NB - XXL": ["NB", "S", "M", "L", "XL", "XXL"],
-    "90 - 150": ["90", "100", "110", "120", "130", "140", "150"],
-    "0 - 36 Month": ["0M", "6M", "12M", "18M", "24M", "36M"],
-    "2 - 8 Years": ["2Y", "3Y", "4Y", "5Y", "6Y", "7Y", "8Y"],
-  };
+  // 🔹 Ambil list sesuai kategori
+  List<String> getCurrentList() {
+    switch (selectedCategory) {
+      case "Huruf":
+        return hurufSizes;
+      case "Angka":
+        return angkaSizes;
+      case "Bulan":
+        if (bulanType == "Range") {
+          return bulanRange;
+        }
+        return bulanSingle;
+      case "Tahun":
+        return tahunSizes;
+      default:
+        return [];
+    }
+  }
+
+  // 🔹 Generate range
+  void generateSizeRange() {
+    final list = getCurrentList();
+
+    if (startSize != null && endSize != null) {
+      final startIndex = list.indexOf(startSize!);
+      final endIndex = list.indexOf(endSize!);
+
+      if (startIndex != -1 && endIndex != -1 && startIndex <= endIndex) {
+        setState(() {
+          generatedSizes = list.sublist(startIndex, endIndex + 1);
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    generatedSizes = sizeOptions[selectedSizeType]!;
   }
 
   @override
@@ -70,60 +159,159 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                         color: const Color(0xFFE7C27D).withOpacity(0.85),
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _field("Brand", brandController),
-                          const SizedBox(height: 12),
+                    child: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
 
-                          _field("Nama Pakaian", namaController),
-                          const SizedBox(height: 12),
+    _field("Brand", brandController),
+    const SizedBox(height: 16),
 
-                          _field("Jenis Pakaian", jenisController),
-                          const SizedBox(height: 12),
+    _field("Nama Pakaian", namaController),
+    const SizedBox(height: 16),
 
-                          const Text(
-                            "Tipe Size",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 6),
+    _field("Jenis Pakaian", jenisController),
+    const SizedBox(height: 20),
 
-                          DropdownButtonFormField(
-                            value: selectedSizeType,
-                            items: sizeOptions.keys
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedSizeType = value.toString();
-                                generatedSizes = sizeOptions[selectedSizeType]!;
-                              });
-                            },
-                            decoration: _dropdownDecoration(),
-                          ),
+    // 🔹 Tipe Size
+    const Text(
+      "Tipe Size",
+      style: TextStyle(fontWeight: FontWeight.w800),
+    ),
+    const SizedBox(height: 6),
 
-                          const SizedBox(height: 20),
+    DropdownButtonFormField(
+      value: selectedCategory,
+      items: ["Huruf", "Angka", "Bulan", "Tahun"]
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(e),
+            ),
+          )
+          .toList(),
+      onChanged: (val) {
+        setState(() {
+          selectedCategory = val!;
+          bulanType = null;
+          startSize = null;
+          endSize = null;
+          generatedSizes = [];
+        });
+      },
+      decoration: _dropdownDecoration(),
+    ),
 
-                          const Text(
-                            "Daftar Size",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 10),
+    const SizedBox(height: 16),
 
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: generatedSizes
-                                .map((size) => _sizeChip(size))
-                                .toList(),
-                          ),
-                        ],
-                      ),
+    // 🔹 Tipe Bulan (jika kategori Bulan)
+    if (selectedCategory == "Bulan") ...[
+      const Text(
+        "Tipe Bulan",
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 6),
+
+      DropdownButtonFormField(
+        value: bulanType,
+        hint: const Text("Pilih Tipe Bulan"),
+        items: ["Single", "Range"]
+            .map(
+              (e) => DropdownMenuItem(
+                value: e,
+                child: Text(e),
+              ),
+            )
+            .toList(),
+        onChanged: (val) {
+          setState(() {
+            bulanType = val!;
+            startSize = null;
+            endSize = null;
+            generatedSizes = [];
+          });
+        },
+        decoration: _dropdownDecoration(),
+      ),
+
+      const SizedBox(height: 16),
+    ],
+
+    // 🔹 Size Awal
+    const Text(
+      "Size Awal",
+      style: TextStyle(fontWeight: FontWeight.w800),
+    ),
+    const SizedBox(height: 6),
+
+    DropdownButtonFormField(
+      value: startSize,
+      hint: const Text("Pilih Size Awal"),
+      items: getCurrentList()
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(e),
+            ),
+          )
+          .toList(),
+      onChanged: (val) {
+        setState(() {
+          startSize = val!;
+        });
+        generateSizeRange();
+      },
+      decoration: _dropdownDecoration(),
+    ),
+
+    const SizedBox(height: 16),
+
+    // 🔹 Size Akhir
+    const Text(
+      "Size Akhir",
+      style: TextStyle(fontWeight: FontWeight.w800),
+    ),
+    const SizedBox(height: 6),
+
+    DropdownButtonFormField(
+      value: endSize,
+      hint: const Text("Pilih Size Akhir"),
+      items: getCurrentList()
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(e),
+            ),
+          )
+          .toList(),
+      onChanged: (val) {
+        setState(() {
+          endSize = val!;
+        });
+        generateSizeRange();
+      },
+      decoration: _dropdownDecoration(),
+    ),
+
+    const SizedBox(height: 20),
+
+    // 🔹 Daftar Size
+    const Text(
+      "Daftar Size",
+      style: TextStyle(fontWeight: FontWeight.w800)
+      
+      
+    ),
+    const SizedBox(height: 8),
+
+    Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: generatedSizes
+          .map((size) => _sizeChip(size))
+          .toList(),
+    ),
+  ],
+),
                     ),
                   ),
 
@@ -132,8 +320,35 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                   SizedBox(
                     width: 200,
                     height: 46,
+
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        if (brandController.text.isEmpty ||
+                            namaController.text.isEmpty ||
+                            jenisController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Semua field harus diisi"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailPakaianPage(
+                              brand: brandController.text,
+                              nama: namaController.text,
+                              jenis: jenisController.text,
+                              sizeType: selectedCategory,
+                              sizes: generatedSizes,
+                              currentIndex: 0,
+                              sizeData: [],
+                            ),
+                          ),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFB88700),
                         shape: RoundedRectangleBorder(

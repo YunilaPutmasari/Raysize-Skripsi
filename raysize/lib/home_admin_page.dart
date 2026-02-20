@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:raysize/list_data_pakaian.dart';
 import '../input_data_anak_page.dart';
 import '../input_data_pakaian_page.dart';
 
@@ -13,7 +14,6 @@ class HomeAdminPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-
             // ================= HEADER =================
             Container(
               width: double.infinity,
@@ -60,10 +60,7 @@ class HomeAdminPage extends StatelessWidget {
             const SizedBox(height: 30),
 
             // ================= ILUSTRASI =================
-            Image.asset(
-              'assets/images/boneka2.png',
-              height: 150,
-            ),
+            Image.asset('assets/images/boneka2.png', height: 150),
 
             const SizedBox(height: 30),
 
@@ -103,7 +100,22 @@ class HomeAdminPage extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(height: 16),
 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _FeatureCard(
+                icon: Icons.table_view,
+                title: "Lihat Data Pakaian",
+                subtitle: "Tabel, edit dan hapus data pakaian",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PakaianListPage()),
+                  );
+                },
+              ),
+            ),
             const Spacer(),
           ],
         ),
@@ -170,10 +182,7 @@ class _FeatureCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                   ),
                 ],
               ),
