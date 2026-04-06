@@ -18,7 +18,8 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
   String? selectedGender;
   String? selectedPakaian;
-
+  String? namaProduk;
+  String? selectedSatuanUsia;
   // Data standar dari antro.json
   Map<String, dynamic> standarBB = {};
   Map<String, dynamic> standarTB = {};
@@ -211,9 +212,18 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       ).showSnackBar(const SnackBar(content: Text("Semua data harus diisi")));
       return;
     }
+    final int inputUsia = int.tryParse(usiaController.text) ?? 0;
 
-    final double usiaTahun = double.tryParse(usiaController.text) ?? 0;
-    final int usiaBulan = (usiaTahun * 12).round();
+    int usiaBulan;
+
+    if (selectedSatuanUsia == "Tahun") {
+      usiaBulan = inputUsia * 12;
+    } else {
+      usiaBulan = inputUsia;
+    }
+
+    final double usiaTahun = usiaBulan / 12.0;
+
     final double bb = double.tryParse(bbController.text) ?? 0;
     final double tb = double.tryParse(tbController.text) ?? 0;
 
@@ -352,6 +362,12 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
           panjangBaju: estP,
           size: sizeRekomendasi,
           produkId: selectedPakaian!,
+
+          umur: usiaTahun.toInt(),
+          berat: bb.toInt(),
+          tinggi: tb.toInt(),
+          jenisKelamin: selectedGender!,
+          namaPakaian: namaProduk ?? "-", // ✅ sekarang nama asli
         ),
       ),
     );
@@ -395,13 +411,48 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _field("Usia (Tahun)", usiaController),
+                          // --- Pilih Satuan Usia ---
+                          const Text(
+                            "Satuan Usia",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: selectedSatuanUsia,
+                            hint: const Text("Pilih Satuan"),
+                            items: ["Bulan", "Tahun"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => selectedSatuanUsia = v),
+                            decoration: _dropdownDecoration(),
+                          ),
+
                           const SizedBox(height: 16),
+
+                          // --- Input Usia ---
+                          _field(
+                            selectedSatuanUsia == "Tahun"
+                                ? "Usia (Tahun)"
+                                : "Usia (Bulan)",
+                            usiaController,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // --- Input Berat Badan ---
                           _field("Berat Badan (kg)", bbController),
                           const SizedBox(height: 16),
+
+                          // --- Input Tinggi Badan ---
                           _field("Tinggi Badan (cm)", tbController),
                           const SizedBox(height: 20),
 
+                          // --- Pilih Jenis Kelamin ---
                           const Text(
                             "Jenis Kelamin",
                             style: TextStyle(fontWeight: FontWeight.w800),
@@ -425,6 +476,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
                           const SizedBox(height: 20),
 
+                          // --- Pilih Produk ---
                           const Text(
                             "Pilih Produk",
                             style: TextStyle(fontWeight: FontWeight.w800),
@@ -437,19 +489,27 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                             builder: (context, snapshot) {
                               if (!snapshot.hasData)
                                 return const CircularProgressIndicator();
+
                               return DropdownButtonFormField<String>(
                                 value: selectedPakaian,
                                 hint: const Text("Pilih Produk"),
-                                items: snapshot.data!.docs
-                                    .map(
-                                      (doc) => DropdownMenuItem(
-                                        value: doc.id,
-                                        child: Text(doc["nama"] ?? "Produk"),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) =>
-                                    setState(() => selectedPakaian = v),
+                                items: snapshot.data!.docs.map((doc) {
+                                  return DropdownMenuItem(
+                                    value: doc.id,
+                                    child: Text(doc["nama"] ?? "Produk"),
+                                  );
+                                }).toList(),
+
+                                onChanged: (v) {
+                                  final doc = snapshot.data!.docs.firstWhere(
+                                    (d) => d.id == v,
+                                  );
+                                  setState(() {
+                                    selectedPakaian = v; // ID
+                                    namaProduk = doc["nama"]; // ✅ Nama Produk
+                                  });
+                                },
+
                                 decoration: _dropdownDecoration(),
                               );
                             },

@@ -93,39 +93,71 @@ class PakaianListPage extends StatelessWidget {
                     // 🔹 TABEL SIZE
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        headingRowColor: MaterialStateProperty.all(
-                          const Color(0xFFB88700),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
                         ),
-                        columns: const [
-                          DataColumn(
-                            label: Text(
-                              "Size",
-                              style: TextStyle(color: Colors.white),
+                        child: DataTable(
+                          headingRowColor: MaterialStateProperty.all(
+                            const Color(0xFFB88700),
+                          ),
+
+                          border: TableBorder(
+                            horizontalInside: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            verticalInside: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            top: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            bottom: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            left: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            right: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
                             ),
                           ),
-                          DataColumn(
-                            label: Text(
-                              "Lebar Dada",
-                              style: TextStyle(color: Colors.white),
+
+                          columns: const [
+                            DataColumn(
+                              label: Text(
+                                "Size",
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                          ),
-                          DataColumn(
-                            label: Text(
-                              "Panjang Baju",
-                              style: TextStyle(color: Colors.white),
+                            DataColumn(
+                              label: Text(
+                                "Lebar Dada",
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                          ),
-                        ],
-                        rows: sizes.map<DataRow>((item) {
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(item['size'].toString())),
-                              DataCell(Text(item['lebar_dada'].toString())),
-                              DataCell(Text(item['panjang_baju'].toString())),
-                            ],
-                          );
-                        }).toList(),
+                            DataColumn(
+                              label: Text(
+                                "Panjang Baju",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                          rows: sizes.map<DataRow>((item) {
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(item['size'].toString())),
+                                DataCell(Text(item['lebar_dada'].toString())),
+                                DataCell(Text(item['panjang_baju'].toString())),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
 
@@ -139,10 +171,17 @@ class PakaianListPage extends StatelessWidget {
                           onPressed: () {
                             _showEditDialog(context, doc.id, data);
                           },
-                          icon: const Icon(Icons.edit),
-                          label: const Text("Edit"),
+                          icon: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                          ), // optional tapi aman
+                          label: const Text(
+                            "Edit",
+                            style: TextStyle(color: Colors.white),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
+                            backgroundColor: const Color(0xFFB88700),
+                            foregroundColor: Colors.white, // 🔥 INI WAJIB
                           ),
                         ),
 
@@ -153,10 +192,14 @@ class PakaianListPage extends StatelessWidget {
                                 .doc(doc.id)
                                 .delete();
                           },
-                          icon: const Icon(Icons.delete),
-                          label: const Text("Hapus"),
+                          icon: const Icon(Icons.delete, color: Colors.white),
+                          label: const Text(
+                            "Hapus",
+                            style: TextStyle(color: Colors.white),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: const Color(0xFFB88700),
+                            foregroundColor: Colors.white, // 🔥 INI WAJIB
                           ),
                         ),
                       ],
