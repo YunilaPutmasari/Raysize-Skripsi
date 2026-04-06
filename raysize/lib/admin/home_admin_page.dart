@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:raysize/list_data_pakaian.dart';
-import '../input_data_anak_page.dart';
-import '../input_data_pakaian_page.dart';
+import 'input_data_anak_page.dart';
+import 'input_data_pakaian_page.dart';
 
 class HomeAdminPage extends StatelessWidget {
   const HomeAdminPage({super.key});
@@ -69,7 +69,7 @@ class HomeAdminPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: _FeatureCard(
                 icon: Icons.child_care,
-                title: "Input Data Anak",
+                title: "Input Data Untuk Rekomendasi",
                 subtitle: "Kelola data anak untuk rekomendasi",
                 onTap: () {
                   Navigator.push(

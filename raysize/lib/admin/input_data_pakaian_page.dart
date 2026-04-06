@@ -159,159 +159,156 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                         color: const Color(0xFFE7C27D).withOpacity(0.85),
                         borderRadius: BorderRadius.circular(30),
                       ),
-                    child: Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _field("Brand", brandController),
+                          const SizedBox(height: 16),
 
-    _field("Brand", brandController),
-    const SizedBox(height: 16),
+                          _field("Nama Pakaian", namaController),
+                          const SizedBox(height: 16),
 
-    _field("Nama Pakaian", namaController),
-    const SizedBox(height: 16),
+                          _field("Jenis Pakaian", jenisController),
+                          const SizedBox(height: 20),
 
-    _field("Jenis Pakaian", jenisController),
-    const SizedBox(height: 20),
+                          // 🔹 Tipe Size
+                          const Text(
+                            "Tipe Size",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
 
-    // 🔹 Tipe Size
-    const Text(
-      "Tipe Size",
-      style: TextStyle(fontWeight: FontWeight.w800),
-    ),
-    const SizedBox(height: 6),
+                          DropdownButtonFormField(
+                            value: selectedCategory,
+                            items: ["Huruf", "Angka", "Bulan", "Tahun"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                selectedCategory = val!;
+                                bulanType = null;
+                                startSize = null;
+                                endSize = null;
+                                generatedSizes = [];
+                              });
+                            },
+                            decoration: _dropdownDecoration(),
+                          ),
 
-    DropdownButtonFormField(
-      value: selectedCategory,
-      items: ["Huruf", "Angka", "Bulan", "Tahun"]
-          .map(
-            (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e),
-            ),
-          )
-          .toList(),
-      onChanged: (val) {
-        setState(() {
-          selectedCategory = val!;
-          bulanType = null;
-          startSize = null;
-          endSize = null;
-          generatedSizes = [];
-        });
-      },
-      decoration: _dropdownDecoration(),
-    ),
+                          const SizedBox(height: 16),
 
-    const SizedBox(height: 16),
+                          // 🔹 Tipe Bulan (jika kategori Bulan)
+                          if (selectedCategory == "Bulan") ...[
+                            const Text(
+                              "Tipe Bulan",
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 6),
 
-    // 🔹 Tipe Bulan (jika kategori Bulan)
-    if (selectedCategory == "Bulan") ...[
-      const Text(
-        "Tipe Bulan",
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      const SizedBox(height: 6),
+                            DropdownButtonFormField(
+                              value: bulanType,
+                              hint: const Text("Pilih Tipe Bulan"),
+                              items: ["Single", "Range"]
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  bulanType = val!;
+                                  startSize = null;
+                                  endSize = null;
+                                  generatedSizes = [];
+                                });
+                              },
+                              decoration: _dropdownDecoration(),
+                            ),
 
-      DropdownButtonFormField(
-        value: bulanType,
-        hint: const Text("Pilih Tipe Bulan"),
-        items: ["Single", "Range"]
-            .map(
-              (e) => DropdownMenuItem(
-                value: e,
-                child: Text(e),
-              ),
-            )
-            .toList(),
-        onChanged: (val) {
-          setState(() {
-            bulanType = val!;
-            startSize = null;
-            endSize = null;
-            generatedSizes = [];
-          });
-        },
-        decoration: _dropdownDecoration(),
-      ),
+                            const SizedBox(height: 16),
+                          ],
 
-      const SizedBox(height: 16),
-    ],
+                          // 🔹 Size Awal
+                          const Text(
+                            "Size Awal",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
 
-    // 🔹 Size Awal
-    const Text(
-      "Size Awal",
-      style: TextStyle(fontWeight: FontWeight.w800),
-    ),
-    const SizedBox(height: 6),
+                          DropdownButtonFormField(
+                            value: startSize,
+                            hint: const Text("Pilih Size Awal"),
+                            items: getCurrentList()
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                startSize = val!;
+                              });
+                              generateSizeRange();
+                            },
+                            decoration: _dropdownDecoration(),
+                          ),
 
-    DropdownButtonFormField(
-      value: startSize,
-      hint: const Text("Pilih Size Awal"),
-      items: getCurrentList()
-          .map(
-            (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e),
-            ),
-          )
-          .toList(),
-      onChanged: (val) {
-        setState(() {
-          startSize = val!;
-        });
-        generateSizeRange();
-      },
-      decoration: _dropdownDecoration(),
-    ),
+                          const SizedBox(height: 16),
 
-    const SizedBox(height: 16),
+                          // 🔹 Size Akhir
+                          const Text(
+                            "Size Akhir",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
 
-    // 🔹 Size Akhir
-    const Text(
-      "Size Akhir",
-      style: TextStyle(fontWeight: FontWeight.w800),
-    ),
-    const SizedBox(height: 6),
+                          DropdownButtonFormField(
+                            value: endSize,
+                            hint: const Text("Pilih Size Akhir"),
+                            items: getCurrentList()
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                endSize = val!;
+                              });
+                              generateSizeRange();
+                            },
+                            decoration: _dropdownDecoration(),
+                          ),
 
-    DropdownButtonFormField(
-      value: endSize,
-      hint: const Text("Pilih Size Akhir"),
-      items: getCurrentList()
-          .map(
-            (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e),
-            ),
-          )
-          .toList(),
-      onChanged: (val) {
-        setState(() {
-          endSize = val!;
-        });
-        generateSizeRange();
-      },
-      decoration: _dropdownDecoration(),
-    ),
+                          const SizedBox(height: 20),
 
-    const SizedBox(height: 20),
+                          // 🔹 Daftar Size
+                          const Text(
+                            "Daftar Size",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 8),
 
-    // 🔹 Daftar Size
-    const Text(
-      "Daftar Size",
-      style: TextStyle(fontWeight: FontWeight.w800)
-      
-      
-    ),
-    const SizedBox(height: 8),
-
-    Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: generatedSizes
-          .map((size) => _sizeChip(size))
-          .toList(),
-    ),
-  ],
-),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: generatedSizes
+                                .map((size) => _sizeChip(size))
+                                .toList(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 

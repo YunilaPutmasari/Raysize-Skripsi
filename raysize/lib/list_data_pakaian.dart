@@ -34,7 +34,9 @@ class PakaianListPage extends StatelessWidget {
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
-              final sizes = data['sizes'] as List<dynamic>;
+              final sizes = List<Map<String, dynamic>>.from(
+                data['sizes'] ?? [],
+              );
               final timestamp = data['createdAt'] as Timestamp?;
 
               return Container(
@@ -104,7 +106,7 @@ class PakaianListPage extends StatelessWidget {
                           ),
                           DataColumn(
                             label: Text(
-                              "Lingkar Dada",
+                              "Lebar Dada",
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -119,7 +121,7 @@ class PakaianListPage extends StatelessWidget {
                           return DataRow(
                             cells: [
                               DataCell(Text(item['size'].toString())),
-                              DataCell(Text(item['lingkar_dada'].toString())),
+                              DataCell(Text(item['lebar_dada'].toString())),
                               DataCell(Text(item['panjang_baju'].toString())),
                             ],
                           );

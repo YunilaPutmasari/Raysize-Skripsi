@@ -26,7 +26,7 @@ class DetailPakaianPage extends StatefulWidget {
 }
 
 class _DetailPakaianPageState extends State<DetailPakaianPage> {
-  final lingkarDadaController = TextEditingController();
+  final lebarDadaController = TextEditingController();
   final panjangBajuController = TextEditingController();
 
   @override
@@ -147,7 +147,7 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
 
                           const SizedBox(height: 20),
 
-                          _field("Lingkar Dada", lingkarDadaController),
+                          _field("Lebar Dada", lebarDadaController),
                           const SizedBox(height: 16),
                           _field("Panjang Baju", panjangBajuController),
                         ],
@@ -162,7 +162,7 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                     height: 46,
                     child: ElevatedButton(
                       onPressed: () async {
-                        if (lingkarDadaController.text.isEmpty ||
+                        if (lebarDadaController.text.isEmpty ||
                             panjangBajuController.text.isEmpty) {
                           return;
                         }
@@ -173,7 +173,7 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
 
                         updatedSizeData.add({
                           'size': widget.sizes[widget.currentIndex],
-                          'lingkar_dada': int.parse(lingkarDadaController.text),
+                          'lebar_dada': int.parse(lebarDadaController.text),
                           'panjang_baju': int.parse(panjangBajuController.text),
                         });
 

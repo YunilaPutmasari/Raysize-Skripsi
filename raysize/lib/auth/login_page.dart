@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:raysize/admin/admin_main_page.dart';
 import 'package:raysize/home_host_page.dart';
-import 'package:raysize/home_admin_page.dart';
+import 'package:raysize/admin/home_admin_page.dart';
 import 'package:raysize/host/host_main_page.dart';
 import 'register_page.dart';
 

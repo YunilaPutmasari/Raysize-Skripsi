@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../input_data_anak_page.dart';
-import '../riwayat_rekomendasi_page.dart';
+import 'admin/input_data_anak_page.dart';
+import 'admin/riwayat_rekomendasi_page.dart';
 import '../widgets/bottom_navbar.dart';
 import '/profile.dart';
 

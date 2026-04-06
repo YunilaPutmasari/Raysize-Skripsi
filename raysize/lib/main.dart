@@ -7,7 +7,7 @@ import 'package:raysize/host/host_main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'auth/login_page.dart';
-import '/home_admin_page.dart';
+import 'admin/home_admin_page.dart';
 import '/home_host_page.dart';
 
 void main() async {
