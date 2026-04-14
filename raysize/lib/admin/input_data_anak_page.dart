@@ -26,6 +26,21 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
   bool isDataLoaded = false;
   bool isLoading = true;
+  double? selectedBB;
+  double? selectedTB;
+
+  double minBB = 0;
+  double maxBB = 0;
+
+  double minTB = 0;
+  double maxTB = 0;
+  bool isAntroMode() {
+    int usia = int.tryParse(usiaController.text) ?? 0;
+
+    int usiaBulan = selectedSatuanUsia == "Tahun" ? usia * 12 : usia;
+
+    return usiaBulan <= 60;
+  }
 
   @override
   void initState() {
@@ -41,22 +56,52 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     return (c - x) / (c - b);
   }
 
-  // Tambahkan fungsi ini agar tidak error lagi
+  // Fungsi trapezoid kiri (untuk kategori "kurus" atau "pendek")
   double trapezoidLeft(double x, double a, double b, double c) {
     if (x <= b) return 1.0;
     if (x > b && x < c) return (c - x) / (c - b);
     return 0.0;
   }
 
-  // Tambahkan fungsi ini agar tidak error lagi
+  // Fungsi trapezoid kanan (untuk kategori "berat" atau "tinggi")
   double trapezoidRight(double x, double a, double b, double c) {
     if (x <= a) return 0.0;
     if (x >= b) return 1.0;
     return (x - a) / (b - a);
   }
 
-  // --- LOGIKA DATA ---
+  void setRangeFromAntro(int usiaBulan, String gender) {
+    final bbParams = getStandarParams(usiaBulan, gender, "bb");
+    final tbParams = getStandarParams(usiaBulan, gender, "tb");
 
+    if (bbParams.isEmpty || tbParams.isEmpty) return;
+
+    setState(() {
+      minBB = (bbParams["minus3"] ?? 0).toDouble();
+      maxBB = (bbParams["plus3"] ?? 0).toDouble();
+
+      minTB = (tbParams["minus3"] ?? 0).toDouble();
+      maxTB = (tbParams["plus3"] ?? 0).toDouble();
+
+      // default pilih tengah
+      selectedBB = (minBB + maxBB) / 2;
+      selectedTB = (minTB + maxTB) / 2;
+    });
+  }
+
+  void handleAntroRange() {
+    if (usiaController.text.isEmpty || selectedGender == null) return;
+
+    int usia = int.tryParse(usiaController.text) ?? 0;
+
+    int usiaBulan = selectedSatuanUsia == "Tahun" ? usia * 12 : usia;
+
+    if (usiaBulan <= 60) {
+      setRangeFromAntro(usiaBulan, selectedGender!);
+    }
+  }
+
+  // --- LOGIKA DATA ---
   Future<void> _loadAntroJson() async {
     try {
       final String response = await rootBundle.loadString('assets/antro.json');
@@ -201,20 +246,20 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
   void prosesRekomendasi() async {
     if (!isDataLoaded) return;
+    final int inputUsia = int.tryParse(usiaController.text) ?? 0;
 
+    int usiaBulan = selectedSatuanUsia == "Tahun" ? inputUsia * 12 : inputUsia;
     if (usiaController.text.isEmpty ||
-        bbController.text.isEmpty ||
-        tbController.text.isEmpty ||
         selectedGender == null ||
-        selectedPakaian == null) {
+        selectedPakaian == null ||
+        (usiaBulan > 60 &&
+            (bbController.text.isEmpty || tbController.text.isEmpty)) ||
+        (usiaBulan <= 60 && (selectedBB == null || selectedTB == null))) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Semua data harus diisi")));
       return;
     }
-    final int inputUsia = int.tryParse(usiaController.text) ?? 0;
-
-    int usiaBulan;
 
     if (selectedSatuanUsia == "Tahun") {
       usiaBulan = inputUsia * 12;
@@ -224,9 +269,18 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
     final double usiaTahun = usiaBulan / 12.0;
 
-    final double bb = double.tryParse(bbController.text) ?? 0;
-    final double tb = double.tryParse(tbController.text) ?? 0;
+    double bb;
+    double tb;
 
+    if (usiaBulan <= 60) {
+      bb = selectedBB ?? 0;
+      tb = selectedTB ?? 0;
+    } else {
+      bb = double.tryParse(bbController.text) ?? 0;
+      tb = double.tryParse(tbController.text) ?? 0;
+    }
+
+    // --- 1️⃣ Ambil Data Standar dari JSON ---
     final bbParams = getStandarParams(usiaBulan, selectedGender!, "bb");
     final tbParams = getStandarParams(usiaBulan, selectedGender!, "tb");
 
@@ -236,10 +290,10 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       );
       return;
     }
-
+    // --- 2️⃣ Fuzzifikasi BB & TB ---
     final muBB = fuzzifyBB(bb, bbParams);
     final muTB = fuzzifyTB(tb, tbParams);
-
+    // --- 3️⃣ Hitung Alpha (Inferensi Fuzzy) ---
     double alphaBesar = [
       muBB["berat"]!,
       muTB["tinggi"]!,
@@ -261,7 +315,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       );
       return;
     }
-
+    // --- 4️⃣ Ambil Size Produk & Filter berdasarkan Usia ---
     final allSizes = await getSizes(selectedPakaian!);
     if (allSizes.isEmpty) return;
 
@@ -286,6 +340,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     var sedang = filteredSizes.sublist(k, (2 * k > n ? n : 2 * k));
     var besar = filteredSizes.sublist((2 * k > n ? n : 2 * k), n);
 
+    // --- 5️⃣ Defuzzifikasi / Estimasi Ukuran Tubuh ---
     // fungsi rata-rata
     double avg(List list, String key) {
       if (list.isEmpty) return 0;
@@ -329,18 +384,11 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
               (alphaBesar * zBesarLD)) /
           totalAlpha;
     }
-    double estP =
-        ((alphaKecil * zKecilP) +
-            (alphaSedang * zSedangP) +
-            (alphaBesar * zBesarP)) /
-        totalAlpha;
-    double estLD =
-        ((alphaKecil * zKecilLD) +
-            (alphaSedang * zSedangLD) +
-            (alphaBesar * zBesarLD)) /
-        totalAlpha;
-
-    // Di bagian matching, gunakan nilai murni hasil estimasi dulu untuk testing
+    panjangBaju:
+    estimasiPanjang;
+    lebarDada:
+    estimasiLebar;
+    // --- 6️⃣ Matching ke Size Produk ---
     final sizeRekomendasi = await cariSizeFirestore(
       selectedPakaian!,
       estimasiPanjang, // Jangan ditambah dulu
@@ -354,15 +402,15 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     } else {
       kategoriUsia = "prasekolah";
     }
+    // --- 7️⃣ Navigasi ke Hasil ---
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => HasilRekomendasiPage(
-          lebarDada: estLD,
-          panjangBaju: estP,
+          lebarDada: estimasiLebar,
+          panjangBaju: estimasiPanjang,
           size: sizeRekomendasi,
           produkId: selectedPakaian!,
-
           umur: usiaTahun.toInt(),
           berat: bb.toInt(),
           tinggi: tb.toInt(),
@@ -436,20 +484,78 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                           const SizedBox(height: 16),
 
                           // --- Input Usia ---
-                          _field(
-                            selectedSatuanUsia == "Tahun"
-                                ? "Usia (Tahun)"
-                                : "Usia (Bulan)",
-                            usiaController,
+                          TextField(
+                            controller: usiaController,
+                            onChanged: (_) => handleAntroRange(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: const Color(0xFFFFF6CC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
 
                           // --- Input Berat Badan ---
-                          _field("Berat Badan (kg)", bbController),
+                          isAntroMode()
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Berat Badan (kg)",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Slider(
+                                      value: (selectedBB ?? minBB).clamp(
+                                        minBB,
+                                        maxBB == 0 ? 1 : maxBB,
+                                      ),
+                                      min: minBB,
+                                      max: maxBB == 0 ? 1 : maxBB,
+                                      onChanged: (val) {
+                                        setState(() => selectedBB = val);
+                                      },
+                                    ),
+                                    Text(
+                                      "Dipilih: ${selectedBB?.toStringAsFixed(1)} kg",
+                                    ),
+                                  ],
+                                )
+                              : _field("Berat Badan (kg)", bbController),
                           const SizedBox(height: 16),
 
                           // --- Input Tinggi Badan ---
-                          _field("Tinggi Badan (cm)", tbController),
+                          isAntroMode()
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Tinggi Badan (cm)",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Slider(
+                                      value: selectedTB ?? minTB,
+                                      min: minTB,
+                                      max: maxTB,
+                                      onChanged: (val) {
+                                        setState(() => selectedTB = val);
+                                      },
+                                    ),
+                                    Text(
+                                      "Dipilih: ${selectedTB?.toStringAsFixed(1)} cm",
+                                    ),
+                                  ],
+                                )
+                              : _field("Tinggi Badan (cm)", tbController),
                           const SizedBox(height: 20),
 
                           // --- Pilih Jenis Kelamin ---
@@ -469,8 +575,10 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                                   ),
                                 )
                                 .toList(),
-                            onChanged: (v) =>
-                                setState(() => selectedGender = v),
+                            onChanged: (v) {
+                              setState(() => selectedGender = v);
+                              handleAntroRange();
+                            },
                             decoration: _dropdownDecoration(),
                           ),
 
