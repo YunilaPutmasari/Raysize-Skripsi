@@ -77,16 +77,213 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     if (bbParams.isEmpty || tbParams.isEmpty) return;
 
     setState(() {
-      minBB = (bbParams["minus3"] ?? 0).toDouble();
-      maxBB = (bbParams["plus3"] ?? 0).toDouble();
+      // Batas slider mengikuti standar WHO: ±3 SD agar anak-anak di
+      // ekstrem (sangat kurus/pendek atau sangat gemuk/tinggi) tetap
+      // bisa dijangkau. Rentang ±2 SD tetap dipakai sebagai referensi "ideal".
+      // Fallback ke ±2 SD jika ±3 SD tidak tersedia di JSON.
+      minBB = (bbParams["minus3"] ?? bbParams["minus2"] ?? 0).toDouble();
+      maxBB = (bbParams["plus3"] ?? bbParams["plus2"] ?? 0).toDouble();
 
-      minTB = (tbParams["minus3"] ?? 0).toDouble();
-      maxTB = (tbParams["plus3"] ?? 0).toDouble();
+      minTB = (tbParams["minus3"] ?? tbParams["minus2"] ?? 0).toDouble();
+      maxTB = (tbParams["plus3"] ?? tbParams["plus2"] ?? 0).toDouble();
 
       // default pilih tengah
       selectedBB = (minBB + maxBB) / 2;
       selectedTB = (minTB + maxTB) / 2;
     });
+  }
+
+  /// Validasi nilai BB & TB anak.
+  /// Return null jika valid, atau record berisi info pelanggaran.
+  /// Untuk usia 0-5 tahun: cek terhadap standar antro.json (±3 SD)
+  /// Untuk usia > 5 tahun: cek rentang wajar hardcode (sanity check)
+  ({String jenis, double nilai, double minIdeal, double maxIdeal, double minAbs, double maxAbs})?
+  validateNilaiAnak({
+    required double bb,
+    required double tb,
+    required int usiaBulan,
+    required String gender,
+  }) {
+    // 1. Cek nilai tidak valid (negatif atau nol)
+    if (bb <= 0) {
+      return (
+        jenis: "Berat Badan",
+        nilai: bb,
+        minIdeal: 0,
+        maxIdeal: 0,
+        minAbs: 0,
+        maxAbs: 0,
+      );
+    }
+    if (tb <= 0) {
+      return (
+        jenis: "Tinggi Badan",
+        nilai: tb,
+        minIdeal: 0,
+        maxIdeal: 0,
+        minAbs: 0,
+        maxAbs: 0,
+      );
+    }
+
+    // 2. Untuk usia 0-5 tahun: cek terhadap standar antro.json (±3 SD)
+    if (usiaBulan <= 60) {
+      final bbParams = getStandarParams(usiaBulan, gender, "bb");
+      final tbParams = getStandarParams(usiaBulan, gender, "tb");
+
+      if (bbParams.isNotEmpty) {
+        final minBB = (bbParams["minus3"] ?? bbParams["minus2"] ?? 0).toDouble();
+        final maxBB = (bbParams["plus3"] ?? bbParams["plus2"] ?? 0).toDouble();
+        final idealMinBB = (bbParams["minus2"] ?? 0).toDouble();
+        final idealMaxBB = (bbParams["plus2"] ?? 0).toDouble();
+        if (bb < minBB || bb > maxBB) {
+          return (
+            jenis: "Berat Badan",
+            nilai: bb,
+            minIdeal: idealMinBB,
+            maxIdeal: idealMaxBB,
+            minAbs: minBB,
+            maxAbs: maxBB,
+          );
+        }
+      }
+
+      if (tbParams.isNotEmpty) {
+        final minTB = (tbParams["minus3"] ?? tbParams["minus2"] ?? 0).toDouble();
+        final maxTB = (tbParams["plus3"] ?? tbParams["plus2"] ?? 0).toDouble();
+        final idealMinTB = (tbParams["minus2"] ?? 0).toDouble();
+        final idealMaxTB = (tbParams["plus2"] ?? 0).toDouble();
+        if (tb < minTB || tb > maxTB) {
+          return (
+            jenis: "Tinggi Badan",
+            nilai: tb,
+            minIdeal: idealMinTB,
+            maxIdeal: idealMaxTB,
+            minAbs: minTB,
+            maxAbs: maxTB,
+          );
+        }
+      }
+      return null;
+    }
+
+    // 3. Untuk usia > 5 tahun: hardcode batas longgar (sanity check)
+    const double minAbsBB = 2.0, maxAbsBB = 80.0;
+    const double minAbsTB = 60.0, maxAbsTB = 200.0;
+
+    if (bb < minAbsBB || bb > maxAbsBB) {
+      return (
+        jenis: "Berat Badan",
+        nilai: bb,
+        minIdeal: 0,
+        maxIdeal: 0,
+        minAbs: minAbsBB,
+        maxAbs: maxAbsBB,
+      );
+    }
+
+    if (tb < minAbsTB || tb > maxAbsTB) {
+      return (
+        jenis: "Tinggi Badan",
+        nilai: tb,
+        minIdeal: 0,
+        maxIdeal: 0,
+        minAbs: minAbsTB,
+        maxAbs: maxAbsTB,
+      );
+    }
+
+    return null;
+  }
+
+  /// Dialog peringatan: nilai BB/TB di luar jangkauan standar.
+  /// Return true jika user memilih "Lanjut Paksa", false jika "Input Ulang".
+  Future<bool> showValidasiDialog(
+    BuildContext context, {
+    required String jenis,
+    required double nilai,
+    required double minIdeal,
+    required double maxIdeal,
+    required double minAbs,
+    required double maxAbs,
+    required int usiaBulan,
+    required String gender,
+  }) async {
+    final bool isAnakKecil = usiaBulan <= 60;
+    final String rentangText = isAnakKecil
+        ? "Standar WHO usia ${(usiaBulan / 12).toStringAsFixed(1)} tahun ($gender):\n"
+              "  • Ideal (±2 SD): ${minIdeal.toStringAsFixed(1)} – ${maxIdeal.toStringAsFixed(1)}\n"
+              "  • Batas wajar (±3 SD): ${minAbs.toStringAsFixed(1)} – ${maxAbs.toStringAsFixed(1)}"
+        : "Rentang wajar: ${minAbs.toStringAsFixed(1)} – ${maxAbs.toStringAsFixed(1)}";
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFFFFF1C1),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Nilai Di Luar Jangkauan",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "$jenis yang dimasukkan: ${nilai.toStringAsFixed(1)} "
+              "${jenis == 'Berat Badan' ? 'kg' : 'cm'}",
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                rentangText,
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Nilai ini mungkin tidak akurat atau di luar jangkauan wajar. "
+              "Silakan periksa kembali input Anda atau lanjutkan dengan nilai saat ini.",
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+            child: const Text("Input Ulang"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB88700),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Lanjut Paksa"),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void handleAntroRange() {
@@ -113,9 +310,9 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
         isDataLoaded = true;
         isLoading = false;
       });
-      print("✅ antro.json berhasil dimuat");
+      debugPrint("✅ antro.json berhasil dimuat");
     } catch (e) {
-      print("❌ Gagal memuat antro.json: $e");
+      debugPrint("❌ Gagal memuat antro.json: $e");
       setState(() => isLoading = false);
     }
   }
@@ -145,31 +342,61 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   Map<String, double> fuzzifyBB(double bb, Map<String, dynamic> params) {
     if (params.isEmpty) return {"kurus": 0.0, "normal": 0.0, "berat": 0.0};
 
-    final double m3 = (params["minus3"] ?? 0).toDouble();
+    final double m2 = (params["minus2"] ?? 0).toDouble();
     final double med = (params["median"] ?? 0).toDouble();
-    final double p3 = (params["plus3"] ?? 0).toDouble();
+    final double p2 = (params["plus2"] ?? 0).toDouble();
 
     return {
-      "kurus": trapezoidLeft(bb, m3 - 2, m3, med),
-      "normal": triangular(bb, m3, med, p3),
-      "berat": trapezoidRight(bb, med, p3, p3 + 2),
+      "kurus": trapezoidLeft(bb, m2 - 1, m2, med),
+      "normal": triangular(bb, m2, med, p2),
+      "berat": trapezoidRight(bb, med, p2, p2 + 1),
     };
   }
 
   Map<String, double> fuzzifyTB(double tb, Map<String, dynamic> params) {
     if (params.isEmpty) return {"pendek": 0.0, "normal": 0.0, "tinggi": 0.0};
 
-    final double m3 = (params["minus3"] ?? 0).toDouble();
+    final double m3 = (params["minus2"] ?? 0).toDouble();
     final double med = (params["median"] ?? 0).toDouble();
-    final double p3 = (params["plus3"] ?? 0).toDouble();
+    final double p3 = (params["plus2"] ?? 0).toDouble();
+
+    double tbRange = p3 - m3;
 
     return {
-      "pendek": trapezoidLeft(tb, m3 - 5, m3, med),
+      "pendek": trapezoidLeft(tb, m3 - (tbRange * 0.15), m3, med),
       "normal": triangular(tb, m3, med, p3),
-      "tinggi": trapezoidRight(tb, med, p3, p3 + 5),
+      "tinggi": trapezoidRight(tb, med, p3, p3 + (tbRange * 0.15)),
     };
   }
 
+  // Estimasi ukuran tubuh anak (LD & PB) dari BB & TB anak.
+  //
+  // Pendekatan: setiap size di baju (Lily, Uniqlo, dll) punya LD & PB
+  // sendiri. Yang harus diestimasi adalah TUBUH ANAK, bukan baju.
+  // Jadi estimasi ini independen dari produk.
+  //
+  // Proporsi standar tubuh balita:
+  //   - Lebar dada ≈ 30% dari tinggi badan
+  //   - Panjang baju (sebatas pinggang) ≈ 35% dari tinggi badan
+  //
+  // Contoh: anak TB 88cm → LD ≈ 26.4 cm, PB ≈ 30.8 cm
+  ({double lebarDada, double panjangBaju}) estimasiTubuhDariAntro(
+    double berat,
+    double tinggi,
+  ) {
+    final double ld = tinggi * 0.30;
+    final double pb = tinggi * 0.35;
+
+    debugPrint(
+      "📐 Estimasi tubuh: BB=$berat kg, TB=$tinggi cm → LD=${ld.toStringAsFixed(1)}, PB=${pb.toStringAsFixed(1)}",
+    );
+
+    return (lebarDada: ld, panjangBaju: pb);
+  }
+
+  // Filter kumpulan size berdasarkan rentang usia (safety, tidak agresif).
+  // Hanya memotong 1-2 size paling ekstrem, bukan membagi kategori.
+  // Misal: usia 2 tahun tidak boleh dapat size XXL.
   List<Map<String, dynamic>> filterByUsia(
     int usiaTahun,
     List<Map<String, dynamic>> sizes,
@@ -178,15 +405,28 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     int n = sizes.length;
 
     if (n == 0) return [];
+    if (n == 1) return [sizes.first];
+
+    int clampIdx(int i) => i.clamp(0, n);
 
     if (usiaTahun <= 1) {
-      return sizes.sublist(0, (n * 0.25).ceil()); // bayi → kecil saja
+      // bayi: 2 size terkecil (skip size dewasa)
+      int end = clampIdx(2);
+      return sizes.sublist(0, end);
+    } else if (usiaTahun <= 2) {
+      // anak 1-2 tahun: skip 1 size paling besar
+      int end = n >= 4 ? n - 1 : n;
+      return sizes.sublist(0, clampIdx(end));
     } else if (usiaTahun <= 3) {
-      return sizes.sublist(0, (n * 0.6).ceil()); // balita
+      // anak 2-3 tahun: tidak exclude (semua size mungkin)
+      return sizes;
     } else if (usiaTahun <= 5) {
-      return sizes.sublist((n * 0.25).floor(), n); // prasekolah
+      // anak 3-5 tahun: tidak exclude
+      return sizes;
     } else {
-      return sizes.sublist((n * 0.4).floor(), n);
+      // > 5 tahun: skip 1 size paling kecil (baby size)
+      int start = n >= 4 ? 1 : 0;
+      return sizes.sublist(clampIdx(start), n);
     }
   }
 
@@ -210,12 +450,12 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
         };
       }).toList();
     } catch (e) {
-      print("ERROR getSizes: $e");
+      debugPrint("ERROR getSizes: $e");
       return [];
     }
   }
 
-  Future<String> cariSizeFirestore(
+  Future<String?> cariSizeFirestore(
     String idProduk,
     double targetPanjang,
     double targetLebar,
@@ -226,22 +466,50 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     // URUTKAN berdasarkan panjang secara ascending (kecil ke besar)
     sizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
 
-    print("--- MULAI MATCHING SIZE ---");
-    print("Target Tubuh -> P: $targetPanjang, LD: $targetLebar");
+    debugPrint("--- MULAI MATCHING SIZE ---");
+    debugPrint("Target Tubuh -> P: $targetPanjang, LD: $targetLebar");
 
+    // Aturan matching:
+    // - Baju yang panjang ATAU lebarnya LEBIH KECIL dari tubuh = TIDAK MUAT,
+    //   langsung di-skip, TIDAK disimpan sebagai kandidat.
+    // - Hanya baju yang panjang >= target DAN lebar >= target yang lolos
+    //   (diambil yang terkecil, agar tidak "loncat" ke size terlalu besar).
+    // - Jika TIDAK ADA satu pun baju yang muat (bahkan size terbesar
+    //   masih lebih kecil dari tubuh) = produk DITOLAK.
     for (var s in sizes) {
-      print("Cek Size ${s['size']}: P(${s['panjang']}) LD(${s['lebarDada']})");
+      debugPrint("Cek Size ${s['size']}: P(${s['panjang']}) LD(${s['lebarDada']})");
 
-      // Cek apakah baju ini lebih besar atau sama dengan target tubuh
+      // Baju yang muat (tidak ada selisih minus)
       if (s['panjang'] >= targetPanjang && s['lebarDada'] >= targetLebar) {
-        print("✅ COCOK! Menggunakan Size: ${s['size']}");
+        debugPrint("✅ COCOK! Menggunakan Size: ${s['size']}");
         return s['size'];
       }
     }
 
-    // Jika sampai akhir tidak ada yang >= target, artinya anak sangat besar
-    print("⚠️ Tidak ada yang muat, ambil size terbesar");
-    return sizes.last['size'];
+    // Tidak ada satu pun size yang muat. Cek apakah size TERBESAR
+    // masih jauh lebih kecil dari tubuh (produk tidak cocok untuk anak ini).
+    final terbesar = sizes.last;
+    final selisihPanjang = terbesar['panjang'] - targetPanjang; // negatif jika baju kekecilan
+    final selisihLebar = terbesar['lebarDada'] - targetLebar;
+
+    // Batas toleransi penolakan: jika size terbesar saja selisih minus
+    // > 10cm panjang atau > 8cm lebar, produk terlalu kecil untuk anak.
+    // (Sesuai aturan: TOLAK SEMUA selisih minus; ambang batas ini hanya
+    // untuk membedakan "tidak ada yang muat" vs "tidak ada size tepat".)
+    const double batasTolakPanjang = -10.0;
+    const double batasTolakLebar = -8.0;
+
+    if (selisihPanjang < batasTolakPanjang || selisihLebar < batasTolakLebar) {
+      debugPrint("❌ DITOLAK: Ukuran tubuh terlalu besar untuk produk ini.");
+      debugPrint("   Size terbesar: P(${terbesar['panjang']}) LD(${terbesar['lebarDada']})");
+      debugPrint("   Target tubuh : P($targetPanjang) LD($targetLebar)");
+      return null;
+    }
+
+    // Size terbesar masih di bawah target tapi dalam batas wajar:
+    // tidak ada size yang pas, kembalikan null (bukan ukuran yang muat).
+    debugPrint("⚠️ Tidak ada size yang muat (size terbesar masih lebih kecil dari tubuh).");
+    return null;
   }
 
   void prosesRekomendasi() async {
@@ -280,129 +548,127 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       tb = double.tryParse(tbController.text) ?? 0;
     }
 
+    // --- 0️⃣ Validasi BB & TB (universal: anak kecil & besar) ---
+    final validation = validateNilaiAnak(
+      bb: bb,
+      tb: tb,
+      usiaBulan: usiaBulan,
+      gender: selectedGender!,
+    );
+    if (validation != null) {
+      final lanjutPaksa = await showValidasiDialog(
+        context,
+        jenis: validation.jenis,
+        nilai: validation.nilai,
+        minIdeal: validation.minIdeal,
+        maxIdeal: validation.maxIdeal,
+        minAbs: validation.minAbs,
+        maxAbs: validation.maxAbs,
+        usiaBulan: usiaBulan,
+        gender: selectedGender!,
+      );
+      if (!lanjutPaksa) return; // user pilih Input Ulang
+      // Setelah user pilih Lanjut Paksa, cek mounted sebelum lanjut
+      if (!mounted) return;
+    }
+
     // --- 1️⃣ Ambil Data Standar dari JSON ---
     final bbParams = getStandarParams(usiaBulan, selectedGender!, "bb");
     final tbParams = getStandarParams(usiaBulan, selectedGender!, "tb");
 
     if (bbParams.isEmpty || tbParams.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Data standar tidak ditemukan")),
       );
       return;
     }
-    // --- 2️⃣ Fuzzifikasi BB & TB ---
+    // --- 2️⃣ Fuzzifikasi BB & TB (untuk validasi data) ---
+    // (Fungsi ini dulu dipakai untuk inferensi fuzzy dan menghasilkan
+    // alpha kecil/sedang/besar. Sekarang logika utama hanya
+    // menggunakan estimasi tubuh + matching, tapi fuzzify tetap
+    // dipertahankan untuk memvalidasi bahwa data anak berada di
+    // dalam jangkauan standar.)
     final muBB = fuzzifyBB(bb, bbParams);
     final muTB = fuzzifyTB(tb, tbParams);
-    // --- 3️⃣ Hitung Alpha (Inferensi Fuzzy) ---
-    double alphaBesar = [
-      muBB["berat"]!,
-      muTB["tinggi"]!,
-    ].reduce((a, b) => a < b ? a : b);
-    double alphaSedang = [
-      muBB["normal"]!,
-      muTB["normal"]!,
-    ].reduce((a, b) => a < b ? a : b);
-    double alphaKecil = [
-      muBB["kurus"]!,
-      muTB["pendek"]!,
-    ].reduce((a, b) => a < b ? a : b);
 
-    final double totalAlpha = alphaBesar + alphaSedang + alphaKecil;
+    final double totalAlpha = muBB.values.fold(0.0, (a, b) => a + b) +
+        muTB.values.fold(0.0, (a, b) => a + b);
 
     if (totalAlpha <= 0.001) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Data tubuh di luar jangkauan")),
       );
       return;
     }
-    // --- 4️⃣ Ambil Size Produk & Filter berdasarkan Usia ---
+    // --- 4️⃣ Ambil Size Produk (TANPA filter usia yang agresif) ---
     final allSizes = await getSizes(selectedPakaian!);
     if (allSizes.isEmpty) return;
 
-    // 🔥 TAMBAHKAN INI
-    final filteredSizes = filterByUsia(usiaTahun.toInt(), allSizes);
+    // Urutkan size dari kecil ke besar berdasarkan panjang baju
+    allSizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
 
+    // Filter usia sebagai SAFETY: exclude size yang sangat ekstrem
+    // (misal usia 2 tahun tidak boleh dapat XXL).
+    // Hanya memotong 1-2 size paling ekstrem, bukan membagi 3 kategori.
+    final filteredSizes = filterByUsia(usiaTahun.toInt(), allSizes);
     if (filteredSizes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Tidak ada size sesuai usia")),
+      filteredSizes.addAll(allSizes);
+    }
+
+    // --- 5️⃣ Estimasi Ukuran Tubuh Anak (dari BB & TB, independen dari baju) ---
+    // Logika: setiap size di baju apapun punya LD & PB sendiri.
+    // Yang harus diestimasi adalah TUBUH ANAK, bukan baju.
+    // Estimasi tubuh anak = fungsi dari TB anak (proporsi standar tubuh).
+    final tubuh = estimasiTubuhDariAntro(bb, tb);
+    final estimasiLebar = tubuh.lebarDada;
+    final estimasiPanjang = tubuh.panjangBaju;
+
+    debugPrint("📊 Estimasi tubuh akhir:");
+    debugPrint("   Lebar Dada: ${estimasiLebar.toStringAsFixed(1)} cm");
+    debugPrint("   Panjang Baju: ${estimasiPanjang.toStringAsFixed(1)} cm");
+
+    // --- 6️⃣ Matching ke Size Produk (berdasarkan LD & PB saja) ---
+    final sizeRekomendasi = await cariSizeFirestore(
+      selectedPakaian!,
+      estimasiPanjang,
+      estimasiLebar,
+    );
+
+    // --- 7️⃣ Jika tidak ada size yang muat (terlalu besar untuk produk) ---
+    if (sizeRekomendasi == null) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFFE7C27D),
+          title: const Text(
+            "Ukuran Tidak Tersedia",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "Ukuran tubuh anak (Lebar Dada ${estimasiLebar.toStringAsFixed(1)} cm, "
+            "Panjang Baju ${estimasiPanjang.toStringAsFixed(1)} cm) "
+            "terlalu besar untuk produk \"${namaProduk ?? 'ini'}\". "
+            "Silakan pilih produk dengan rentang ukuran yang lebih besar.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "OK",
+                style: TextStyle(color: Color(0xFFB88700)),
+              ),
+            ),
+          ],
+        ),
       );
       return;
     }
 
-    // pakai ini selanjutnya
-    filteredSizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
-    // URUTKAN berdasarkan panjang dari kecil ke besar
-    allSizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
-    int n = filteredSizes.length;
-    int k = (n / 3).ceil();
-
-    var kecil = filteredSizes.sublist(0, k);
-    var sedang = filteredSizes.sublist(k, (2 * k > n ? n : 2 * k));
-    var besar = filteredSizes.sublist((2 * k > n ? n : 2 * k), n);
-
-    // --- 5️⃣ Defuzzifikasi / Estimasi Ukuran Tubuh ---
-    // fungsi rata-rata
-    double avg(List list, String key) {
-      if (list.isEmpty) return 0;
-      return list.map((e) => e[key]).reduce((a, b) => a + b) / list.length;
-    }
-
-    double zKecilP = avg(kecil, 'panjang');
-    double zSedangP = avg(sedang, 'panjang');
-    double zBesarP = avg(besar, 'panjang');
-
-    double zKecilLD = avg(kecil, 'lebarDada');
-    double zSedangLD = avg(sedang, 'lebarDada');
-    double zBesarLD = avg(besar, 'lebarDada');
-
-    // Hitung estimasi tubuh (Hasil ini harusnya berada di antara size terkecil dan terbesar baju tersebut)
-    double estimasiPanjang;
-    double estimasiLebar;
-
-    // ✅ jika hanya 1 kategori aktif → langsung ambil
-    if (alphaBesar > 0 && alphaSedang == 0 && alphaKecil == 0) {
-      estimasiPanjang = zBesarP;
-      estimasiLebar = zBesarLD;
-    } else if (alphaSedang > 0 && alphaBesar == 0 && alphaKecil == 0) {
-      estimasiPanjang = zSedangP;
-      estimasiLebar = zSedangLD;
-    } else if (alphaKecil > 0 && alphaBesar == 0 && alphaSedang == 0) {
-      estimasiPanjang = zKecilP;
-      estimasiLebar = zKecilLD;
-    } else {
-      double totalAlpha = alphaKecil + alphaSedang + alphaBesar;
-
-      estimasiPanjang =
-          ((alphaKecil * zKecilP) +
-              (alphaSedang * zSedangP) +
-              (alphaBesar * zBesarP)) /
-          totalAlpha;
-
-      estimasiLebar =
-          ((alphaKecil * zKecilLD) +
-              (alphaSedang * zSedangLD) +
-              (alphaBesar * zBesarLD)) /
-          totalAlpha;
-    }
-    panjangBaju:
-    estimasiPanjang;
-    lebarDada:
-    estimasiLebar;
-    // --- 6️⃣ Matching ke Size Produk ---
-    final sizeRekomendasi = await cariSizeFirestore(
-      selectedPakaian!,
-      estimasiPanjang, // Jangan ditambah dulu
-      estimasiLebar, // Jangan ditambah dulu
-    );
-    String kategoriUsia;
-    if (usiaTahun <= 1) {
-      kategoriUsia = "bayi";
-    } else if (usiaTahun <= 3) {
-      kategoriUsia = "balita";
-    } else {
-      kategoriUsia = "prasekolah";
-    }
-    // --- 7️⃣ Navigasi ke Hasil ---
+    // --- 8️⃣ Navigasi ke Hasil ---
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -453,7 +719,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                       width: cardWidth,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE7C27D).withOpacity(0.85),
+                        color: const Color(0xFFE7C27D).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: Column(
@@ -500,7 +766,31 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          // --- Pilih Jenis Kelamin ---
+                          const Text(
+                            "Jenis Kelamin",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: selectedGender,
+                            hint: const Text("Pilih Jenis Kelamin"),
+                            items: ["Laki-laki", "Perempuan"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              setState(() => selectedGender = v);
+                              handleAntroRange();
+                            },
+                            decoration: _dropdownDecoration(),
+                          ),
 
+                          const SizedBox(height: 20),
                           // --- Input Berat Badan ---
                           isAntroMode()
                               ? Column(
@@ -558,32 +848,6 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                               : _field("Tinggi Badan (cm)", tbController),
                           const SizedBox(height: 20),
 
-                          // --- Pilih Jenis Kelamin ---
-                          const Text(
-                            "Jenis Kelamin",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<String>(
-                            value: selectedGender,
-                            hint: const Text("Pilih Jenis Kelamin"),
-                            items: ["Laki-laki", "Perempuan"]
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) {
-                              setState(() => selectedGender = v);
-                              handleAntroRange();
-                            },
-                            decoration: _dropdownDecoration(),
-                          ),
-
-                          const SizedBox(height: 20),
-
                           // --- Pilih Produk ---
                           const Text(
                             "Pilih Produk",
@@ -595,8 +859,9 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                                 .collection("pakaian")
                                 .snapshots(),
                             builder: (context, snapshot) {
-                              if (!snapshot.hasData)
+                              if (!snapshot.hasData) {
                                 return const CircularProgressIndicator();
+                              }
 
                               return DropdownButtonFormField<String>(
                                 value: selectedPakaian,

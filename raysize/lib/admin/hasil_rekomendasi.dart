@@ -182,7 +182,7 @@ class _HasilRekomendasiPageState extends State<HasilRekomendasiPage> {
                           color: Colors.white,
                         ),
                       ),
-                  
+
                       const SizedBox(height: 20),
 
                       // Badge Ukuran Utama
@@ -217,7 +217,7 @@ class _HasilRekomendasiPageState extends State<HasilRekomendasiPage> {
                           ],
                         ),
                       ),
-    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
                       _buildCard("Estimasi hitungan fuzzy", [
                         "Lebar Dada : ${widget.lebarDada.toStringAsFixed(1)} cm",
