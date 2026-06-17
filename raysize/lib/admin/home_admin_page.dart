@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:raysize/list_data_pakaian.dart';
-import 'input_data_anak_page.dart';
+import 'package:raysize/shared/input_data_anak_page.dart';
+import 'package:raysize/shared/list_data_pakaian.dart';
+
 import 'input_data_pakaian_page.dart';
 
 class HomeAdminPage extends StatelessWidget {

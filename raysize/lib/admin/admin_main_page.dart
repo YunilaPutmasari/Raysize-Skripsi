@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:raysize/admin/riwayat_rekomendasi_page.dart';
+import 'package:raysize/shared/bottom_navbar.dart';
+import 'package:raysize/shared/profile.dart';
+import 'package:raysize/shared/riwayat_rekomendasi_page.dart';
 
-import '../profile.dart';
-import '../widgets/bottom_navbar.dart';
 import 'home_admin_page.dart';
 
 class AdminMainPage extends StatefulWidget {

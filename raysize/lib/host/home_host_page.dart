@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'admin/input_data_anak_page.dart';
-import 'admin/riwayat_rekomendasi_page.dart';
-import '../widgets/bottom_navbar.dart';
-import '/profile.dart';
+import 'package:raysize/shared/input_data_anak_page.dart';
+import 'package:raysize/shared/riwayat_rekomendasi_page.dart';
 
 class HomeHostPage extends StatelessWidget {
   const HomeHostPage({super.key});

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:raysize/detail_pakaian.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:raysize/shared/detail_pakaian.dart';
 
 class InputDataPakaianPage extends StatefulWidget {
   const InputDataPakaianPage({super.key});

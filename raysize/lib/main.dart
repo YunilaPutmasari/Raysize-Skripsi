@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'auth/login_page.dart';
 import 'admin/home_admin_page.dart';
-import '/home_host_page.dart';
+import 'host/home_host_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

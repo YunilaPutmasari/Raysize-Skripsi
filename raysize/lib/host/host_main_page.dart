@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'home_host_page.dart';
+import 'package:raysize/shared/bottom_navbar.dart';
+import 'package:raysize/shared/profile.dart';
+import 'package:raysize/shared/riwayat_rekomendasi_page.dart';
 
-import '../admin/riwayat_rekomendasi_page.dart';
-import '../home_host_page.dart';
-import '../profile.dart';
-import '../widgets/bottom_navbar.dart';
 
 class HostMainPage extends StatefulWidget {
   const HostMainPage({super.key});
