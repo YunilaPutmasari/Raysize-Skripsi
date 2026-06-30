@@ -64,7 +64,7 @@ class PakaianListPage extends StatelessWidget {
                   ),
 
                   subtitle: Text(
-                    "Brand: ${data['brand']} • Jenis: ${data['jenis']}",
+                    "Brand: ${data['brand']} • Jenis: ${data['jenis']} • Bahan: ${data['jenisBahan'] ?? '-'}",
                   ),
 
                   children: [
@@ -79,6 +79,7 @@ class PakaianListPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _infoRow("Kategori Size", data['sizeType']),
+                          _infoRow("Jenis Bahan", data['jenisBahan'] ?? '-'),
                           _infoRow(
                             "Range",
                             "${sizes.first['size']} - ${sizes.last['size']}",
@@ -234,50 +235,106 @@ class PakaianListPage extends StatelessWidget {
     final brandController = TextEditingController(text: data['brand']);
     final namaController = TextEditingController(text: data['nama']);
     final jenisController = TextEditingController(text: data['jenis']);
+    String selectedJenisBahanEdit = data['jenisBahan'] ?? 'Stretchy';
 
     showDialog(
       context: context,
       builder: (_) {
-        return AlertDialog(
-          title: const Text("Edit Data Pakaian"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: brandController,
-                decoration: const InputDecoration(labelText: "Brand"),
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) {
+            return AlertDialog(
+              title: const Text("Edit Data Pakaian"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: brandController,
+                      decoration: const InputDecoration(labelText: "Brand"),
+                    ),
+                    TextField(
+                      controller: namaController,
+                      decoration: const InputDecoration(labelText: "Nama"),
+                    ),
+                    TextField(
+                      controller: jenisController,
+                      decoration: const InputDecoration(labelText: "Jenis"),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedJenisBahanEdit,
+                      decoration: const InputDecoration(
+                        labelText: "Jenis Bahan",
+                      ),
+                      items: const ["Stretchy", "Non-Stretchy"]
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        setLocalState(() => selectedJenisBahanEdit = v!);
+                      },
+                    ),
+                    if ((data['jenisBahan'] == null))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            border: Border.all(color: Colors.amber),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  "Produk lama: jenis bahan belum di-set. "
+                                  "Pilih sesuai jenis kainnya.",
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: namaController,
-                decoration: const InputDecoration(labelText: "Nama"),
-              ),
-              TextField(
-                controller: jenisController,
-                decoration: const InputDecoration(labelText: "Jenis"),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Batal"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await FirebaseFirestore.instance
-                    .collection('pakaian')
-                    .doc(docId)
-                    .update({
-                      'brand': brandController.text,
-                      'nama': namaController.text,
-                      'jenis': jenisController.text,
-                    });
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Batal"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await FirebaseFirestore.instance
+                        .collection('pakaian')
+                        .doc(docId)
+                        .update({
+                          'brand': brandController.text,
+                          'nama': namaController.text,
+                          'jenis': jenisController.text,
+                          'jenisBahan': selectedJenisBahanEdit,
+                        });
 
-                Navigator.pop(context);
-              },
-              child: const Text("Simpan"),
-            ),
-          ],
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Simpan"),
+                ),
+              ],
+            );
+          },
         );
       },
     );

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:raysize/admin/home_admin_page.dart';
 
 class DetailPakaianPage extends StatefulWidget {
   final String brand;
   final String nama;
   final String jenis;
+  final String jenisBahan;
   final String sizeType;
   final List<String> sizes;
   final int currentIndex;
@@ -15,6 +17,7 @@ class DetailPakaianPage extends StatefulWidget {
     required this.brand,
     required this.nama,
     required this.jenis,
+    required this.jenisBahan,
     required this.sizeType,
     required this.sizes,
     required this.currentIndex,
@@ -104,6 +107,8 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
+                                Text("Jenis Bahan : ${widget.jenisBahan}"),
+                                const SizedBox(height: 4),
                                 Text(
                                   "Range : ${widget.sizes.first} sampai ${widget.sizes.last}",
                                 ),
@@ -162,8 +167,21 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                     height: 46,
                     child: ElevatedButton(
                       onPressed: () async {
-                        if (lebarDadaController.text.isEmpty ||
-                            panjangBajuController.text.isEmpty) {
+                        if (lebarDadaController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Lebar dada wajib diisi"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (panjangBajuController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Panjang baju wajib diisi"),
+                            ),
+                          );
                           return;
                         }
 
@@ -171,12 +189,43 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                           widget.sizeData,
                         );
 
+                        final ld = int.tryParse(
+                          lebarDadaController.text.trim(),
+                        );
+                        final pb = int.tryParse(
+                          panjangBajuController.text.trim(),
+                        );
+
+                        if (ld == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Lebar dada harus berupa angka"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (pb == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Panjang baju harus berupa angka"),
+                            ),
+                          );
+                          return;
+                        }
                         updatedSizeData.add({
                           'size': widget.sizes[widget.currentIndex],
-                          'lebar_dada': int.parse(lebarDadaController.text),
-                          'panjang_baju': int.parse(panjangBajuController.text),
+                          'lebar_dada': ld,
+                          'panjang_baju': pb,
                         });
-
+                        if (ld <= 0 || pb <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Ukuran harus lebih dari 0"),
+                            ),
+                          );
+                          return;
+                        }
                         // Kalau masih ada size berikutnya
                         if (widget.currentIndex < widget.sizes.length - 1) {
                           Navigator.pushReplacement(
@@ -186,6 +235,7 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                                 brand: widget.brand,
                                 nama: widget.nama,
                                 jenis: widget.jenis,
+                                jenisBahan: widget.jenisBahan,
                                 sizeType: widget.sizeType,
                                 sizes: widget.sizes,
                                 currentIndex: widget.currentIndex + 1,
@@ -202,18 +252,28 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                                 'brand': widget.brand,
                                 'nama': widget.nama,
                                 'jenis': widget.jenis,
+                                'jenisBahan': widget.jenisBahan,
                                 'sizeType': widget.sizeType,
                                 'sizes': updatedSizeData,
                                 'createdAt': FieldValue.serverTimestamp(),
                               });
 
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Berhasil simpan semua data"),
                             ),
                           );
 
-                          Navigator.popUntil(context, (route) => route.isFirst);
+                          // Kembali ke HomeAdminPage, bukan ke root (AuthChecker)
+                          // supaya AuthChecker tidak re-run & trigger redirect ke login
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HomeAdminPage(),
+                            ),
+                            (route) => false,
+                          );
                         }
                       },
                       style: ElevatedButton.styleFrom(

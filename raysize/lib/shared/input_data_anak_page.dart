@@ -539,84 +539,121 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   ({double lebarDada, double panjangBaju}) _estimasiTubuhDariAntro(
     double berat,
     double tinggi,
+    String jenisBahan,
+    Map<String, dynamic> bbParams,
   ) {
-    final double ld = tinggi * 0.30; // Lebar dada 30% dari tinggi
-    final double pb = tinggi * 0.35; // Panjang baju 35% dari tinggi
+    // Stretchy
+    if (jenisBahan == "Stretchy") {
+      return (lebarDada: tinggi * 0.30, panjangBaju: tinggi * 0.32);
+    }
+    final double medianBB = (bbParams["median"] as num).toDouble();
+    double koreksiBB = (berat - medianBB) * 0.10;
 
-    debugPrint(
-      "📐 Estimasi tubuh: BB=$berat kg, TB=$tinggi cm → "
-      "LD=${ld.toStringAsFixed(1)}, PB=${pb.toStringAsFixed(1)}",
-    );
+    double ld = (tinggi * 0.30) + koreksiBB;
+    // Non Stretchy
+    final double bb = berat.clamp(6.0, 60.0);
+    final double tb = tinggi.clamp(50.0, 160.0);
+
+    // final double ld = (0.20 * tb) - (0.15 * bb) + 12.5;
+
+    final double pb = (0.43 * tb) + 4.0;
 
     return (lebarDada: ld, panjangBaju: pb);
   }
 
-  /// Filter kumpulan size berdasarkan rentang usia
-  /// Hanya memotong 1-2 size paling ekstrem, bukan membagi kategori
-  List<Map<String, dynamic>> _filterByUsia(
-    int usiaTahun,
-    List<Map<String, dynamic>> sizes,
-  ) {
-    // Urutkan size dari kecil ke besar
-    sizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
-    final int n = sizes.length;
+  /// Mengambil `jenisBahan` produk dari Firestore.
+  /// Default ke "Stretchy" untuk produk lama yang belum punya field ini.
+  Future<String> _getJenisBahan(String idProduk) async {
+    try {
+      final DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection("pakaian")
+          .doc(idProduk)
+          .get();
+      if (!doc.exists) return "Stretchy";
+      final Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
+      return (data?['jenisBahan'] as String?) ?? "Stretchy";
+    } catch (e) {
+      debugPrint("ERROR getJenisBahan: $e");
+      return "Stretchy";
+    }
+  }
 
-    if (n == 0) return [];
-    if (n == 1) return [sizes.first];
-
-    int clampIdx(int i) => i.clamp(0, n);
-
-    if (usiaTahun <= 1) {
-      // Bayi: 2 size terkecil
-      final int end = clampIdx(2);
-      return sizes.sublist(0, end);
-    } else if (usiaTahun <= 2) {
-      // Anak 1-2 tahun: skip 1 size paling besar
-      final int end = n >= 4 ? n - 1 : n;
-      return sizes.sublist(0, clampIdx(end));
-    } else if (usiaTahun <= 5) {
-      // Anak 2-5 tahun: tidak exclude
-      return sizes;
-    } else {
-      // > 5 tahun: skip 1 size paling kecil (baby size)
-      final int start = n >= 4 ? 1 : 0;
-      return sizes.sublist(clampIdx(start), n);
+  /// Menghitung ease allowance (cm) berdasarkan jenis bahan pakaian.
+  /// Non-stretchy butuh ruang lebih supaya tidak terlalu ketat saat dipakai.
+  /// - Stretchy (kaos, legging, spandex): LD +2, PB +4 (pas, mengikuti tubuh)
+  /// - Non-Stretchy (sweater, jaket, denim): LD +5, PB +7 (longgar, untuk layering)
+  ({double easeLebar, double easePanjang}) _getEase(String jenisBahan) {
+    switch (jenisBahan) {
+      case "Non-Stretchy":
+        return (easeLebar: 3.0, easePanjang: 6.0);
+      default: // "Stretchy" atau null (backward compatibility)
+        return (easeLebar: 1.0, easePanjang: 1.0);
     }
   }
 
   /// Mencari size yang cocok dengan ukuran tubuh anak
-  Future<String?> _cariSizeFirestore(
-    String idProduk,
+  /// dengan pendekatan best-fit (paling dekat ke target) plus ease allowance
+  /// yang disesuaikan dengan jenis bahan pakaian.
+  ///
+  /// Parameters:
+  /// - sizes: list size produk (sudah di-fetch)
+  /// - targetPanjang / targetLebar: estimasi ukuran tubuh anak
+  /// - jenisBahan: "Stretchy" | "Non-Stretchy"
+  String? _cariSizeFirestore(
+    List<Map<String, dynamic>> sizes,
     double targetPanjang,
     double targetLebar,
-  ) async {
-    final List<Map<String, dynamic>> sizes = await _getSizes(idProduk);
+    String jenisBahan,
+  ) {
     if (sizes.isEmpty) return "-";
 
     // Urutkan berdasarkan panjang secara ascending
     sizes.sort((a, b) => a['panjang'].compareTo(b['panjang']));
 
-    debugPrint("--- MULAI MATCHING SIZE ---");
+    // Ease allowance dinamis berdasarkan jenis bahan
+    final ({double easeLebar, double easePanjang}) ease = _getEase(jenisBahan);
+    final double minP = targetPanjang + ease.easePanjang;
+    final double minL = targetLebar + ease.easeLebar;
+
+    debugPrint("--- MULAI MATCHING SIZE (bahan=$jenisBahan) ---");
     debugPrint("Target Tubuh -> P: $targetPanjang, LD: $targetLebar");
+    debugPrint(
+      "Min Pakaian (ease L=${ease.easeLebar}, P=${ease.easePanjang}) -> "
+      "P: $minP, LD: $minL",
+    );
 
-    // Cari size yang muat (panjang >= target DAN lebar >= target)
+    // Cari semua size yang muat (dengan ease), lalu pilih yang
+    // paling dekat (best-fit) ke target.
+    Map<String, dynamic>? bestFit;
+    double bestScore = double.infinity;
+
     for (final Map<String, dynamic> s in sizes) {
-      debugPrint(
-        "Cek Size ${s['size']}: P(${s['panjang']}) LD(${s['lebarDada']})",
-      );
+      final double p = s['panjang'] as double;
+      final double l = s['lebarDada'] as double;
+      debugPrint("Cek Size ${s['size']}: P($p) LD($l)");
 
-      if (s['panjang'] >= targetPanjang && s['lebarDada'] >= targetLebar) {
-        debugPrint("✅ COCOK! Menggunakan Size: ${s['size']}");
-        return s['size'];
+      if (p >= minP && l >= minL) {
+        // Selisih antara size pakaian dan target (semakin kecil = semakin pas)
+        final double score = (p - targetPanjang) + (l - targetLebar);
+        if (score < bestScore) {
+          bestScore = score;
+          bestFit = s;
+        }
       }
     }
 
-    // Tidak ada size yang muat, cek apakah produk terlalu kecil
+    if (bestFit != null) {
+      debugPrint("✅ BEST FIT: Size ${bestFit['size']} (score=$bestScore)");
+      return bestFit['size'] as String;
+    }
+
+    // Tidak ada size yang muat, cek apakah produk terlalu kecil.
+    // Hanya fallback ke size TERBESAR (bukan terkecil!) supaya anak
+    // tidak terjepit di ujung bawah range.
     final Map<String, dynamic> terbesar = sizes.last;
     final double selisihPanjang = terbesar['panjang'] - targetPanjang;
     final double selisihLebar = terbesar['lebarDada'] - targetLebar;
 
-    // Batas toleransi penolakan
     const double batasTolakPanjang = -10.0;
     const double batasTolakLebar = -8.0;
 
@@ -625,8 +662,11 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       return null;
     }
 
-    debugPrint("⚠️ Tidak ada size yang muat");
-    return null;
+    debugPrint(
+      "⚠️ Tidak ada size yang muat sempurna, fallback ke size terbesar: "
+      "${terbesar['size']} (ΔP=$selisihPanjang, ΔL=$selisihLebar)",
+    );
+    return terbesar['size'] as String;
   }
 
   // ==========================================================================
@@ -662,9 +702,8 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     double tb;
 
     if (usiaBulan <= 60) {
-      // Mode slider (antro)
-      bb = _selectedBB ?? 0;
-      tb = _selectedTB ?? 0;
+      bb = double.parse((_selectedBB ?? 0).toStringAsFixed(1));
+      tb = double.parse((_selectedTB ?? 0).toStringAsFixed(1));
     } else {
       // Mode input manual
       bb = double.tryParse(_bbController.text) ?? 0;
@@ -739,35 +778,91 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     }
 
     // ┌─────────────────────────────────────────────────────────────────┐
-    // │ STEP 3: Ambil dan Filter Size Produk                            │
+    // │ STEP 3: Ambil Size Produk + Jenis Bahan                         │
     // └─────────────────────────────────────────────────────────────────┘
     final List<Map<String, dynamic>> allSizes = await _getSizes(
       _selectedPakaian!,
     );
     if (allSizes.isEmpty) return;
 
-    // Filter usia sebagai safety (exclude size yang sangat ekstrem)
-    final List<Map<String, dynamic>> filteredSizes = _filterByUsia(
-      usiaTahun.toInt(),
-      allSizes,
-    );
+    // Filter usia dinonaktifkan: matching murni berdasarkan BB & TB.
+    // (Filter berdasarkan usia pernah menyebabkan size XL terpotong dari
+    //  list untuk anak usia muda, sehingga rekomendasi terjepit ke size
+    //  terkecil. BB & TB sudah cukup merepresentasikan usia.)
+    final List<Map<String, dynamic>> filteredSizes = allSizes;
+
+    // Ambil jenis bahan produk (default "Stretchy" untuk produk lama)
+    final String jenisBahan = await _getJenisBahan(_selectedPakaian!);
 
     // ┌─────────────────────────────────────────────────────────────────┐
     // │ STEP 4: Estimasi Ukuran Tubuh Anak                              │
     // └─────────────────────────────────────────────────────────────────┘
     final ({double lebarDada, double panjangBaju}) tubuh =
-        _estimasiTubuhDariAntro(bb, tb);
+        _estimasiTubuhDariAntro(bb, tb, jenisBahan, bbParams);
     final double estimasiLebar = tubuh.lebarDada;
     final double estimasiPanjang = tubuh.panjangBaju;
 
     // ┌─────────────────────────────────────────────────────────────────┐
     // │ STEP 5: Matching ke Size Produk                                 │
     // └─────────────────────────────────────────────────────────────────┘
-    final String? sizeRekomendasi = await _cariSizeFirestore(
-      _selectedPakaian!,
+    final String? sizeRekomendasi = _cariSizeFirestore(
+      filteredSizes,
       estimasiPanjang,
       estimasiLebar,
+      jenisBahan,
     );
+
+    // ┌─────────────────────────────────────────────────────────────────┐
+    // │ STEP 5.5: Validasi akhir — size baju harus >= tubuh (no ease)   │
+    // │ Jika baju lebih kecil dari tubuh, berarti sudah melampaui      │
+    // │ rentang size produk. Tolak & jangan kasih rekomendasi.         │
+    // └─────────────────────────────────────────────────────────────────┘
+    if (sizeRekomendasi != null) {
+      final Map<String, dynamic>? sizeDipilih = filteredSizes
+          .cast<Map<String, dynamic>?>()
+          .firstWhere((s) => s?['size'] == sizeRekomendasi, orElse: () => null);
+      if (sizeDipilih != null && sizeDipilih.isNotEmpty) {
+        final double pBaju = (sizeDipilih['panjang'] as num).toDouble();
+        final double lBaju = (sizeDipilih['lebarDada'] as num).toDouble();
+        // Tolak jika baju lebih kecil dari tubuh pada dimensi APAPUN
+        // (mengabaikan ease allowance — kalau tanpa ease sudah lebih kecil,
+        //  sudah pasti tidak muat).
+        if (pBaju < estimasiPanjang || lBaju < estimasiLebar) {
+          debugPrint(
+            "❌ Size $sizeRekomendasi lebih kecil dari tubuh: "
+            "ΔP=${(pBaju - estimasiPanjang).toStringAsFixed(1)}, "
+            "ΔL=${(lBaju - estimasiLebar).toStringAsFixed(1)}",
+          );
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFFE7C27D),
+              title: const Text(
+                "Ukuran Tidak Tersedia",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Text(
+                "Ukuran tubuh anak (Lebar Dada ${estimasiLebar.toStringAsFixed(1)} cm, "
+                "Panjang Baju ${estimasiPanjang.toStringAsFixed(1)} cm) "
+                "melebihi rentang size produk \"${_namaProduk ?? 'ini'}\". "
+                "Silakan pilih produk dengan rentang ukuran yang lebih besar.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    "OK",
+                    style: TextStyle(color: Color(0xFFB88700)),
+                  ),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+    }
 
     // ┌─────────────────────────────────────────────────────────────────┐
     // │ STEP 6: Handle jika tidak ada size yang muat                   │
@@ -819,6 +914,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
           tinggi: tb.toInt(),
           jenisKelamin: _selectedGender!,
           namaPakaian: _namaProduk ?? "-",
+          jenisBahan: jenisBahan,
         ),
       ),
     );

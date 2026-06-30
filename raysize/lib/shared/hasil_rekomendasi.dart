@@ -12,6 +12,8 @@ class HasilRekomendasiPage extends StatefulWidget {
   final int tinggi;
   final String jenisKelamin;
   final String namaPakaian;
+  final String jenisBahan;
+
   const HasilRekomendasiPage({
     super.key,
     required this.lebarDada,
@@ -23,6 +25,7 @@ class HasilRekomendasiPage extends StatefulWidget {
     required this.tinggi,
     required this.jenisKelamin,
     required this.namaPakaian,
+    required this.jenisBahan,
   });
 
   @override
@@ -110,9 +113,14 @@ class _HasilRekomendasiPageState extends State<HasilRekomendasiPage> {
 
     // Hitung selisih (Baju - Tubuh)
     // Karena logika kita mencari baju yang LEBIH BESAR, selisih biasanya positif.
+    // Hitung selisih baju dengan tubuh
     final diffPanjang = actualPanjang - widget.panjangBaju;
     final diffLebar = actualLebar - widget.lebarDada;
 
+    // Ease berdasarkan jenis bahan
+    final double easeLD = widget.jenisBahan == "Non-Stretchy" ? 3.0 : 1.0;
+
+    final double easePB = widget.jenisBahan == "Non-Stretchy" ? 6.0 : 1.0;
     String rekomendasiStatus = "Sesuai / Pas";
     Color statusColor = Colors.green;
 
@@ -220,8 +228,8 @@ class _HasilRekomendasiPageState extends State<HasilRekomendasiPage> {
                       const SizedBox(height: 24),
 
                       _buildCard("Estimasi hitungan fuzzy", [
-                        "Lebar Dada : ${widget.lebarDada.toStringAsFixed(1)} cm",
-                        "Panjang Baju : ${widget.panjangBaju.toStringAsFixed(1)} cm",
+                        "Lebar Dada : ${(widget.lebarDada + easeLD).toStringAsFixed(1)} cm",
+                        "Panjang Baju : ${(widget.panjangBaju + easePB).toStringAsFixed(1)} cm",
                       ]),
 
                       const SizedBox(height: 20),

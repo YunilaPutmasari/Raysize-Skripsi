@@ -1,7 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:raysize/shared/detail_pakaian.dart';
+import 'package:raysize/admin/detail_pakaian.dart';
 
 class InputDataPakaianPage extends StatefulWidget {
   const InputDataPakaianPage({super.key});
@@ -77,6 +77,7 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
   String? bulanType;
   String? startSize;
   String? endSize;
+  String? selectedJenisBahan; // "Stretchy" | "Non-Stretchy"
 
   List<String> generatedSizes = [];
 
@@ -170,6 +171,29 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                           const SizedBox(height: 16),
 
                           _field("Jenis Pakaian", jenisController),
+                          const SizedBox(height: 16),
+
+                          // 🔹 Dropdown Jenis Bahan (menentukan ease allowance saat rekomendasi)
+                          const Text(
+                            "Jenis Bahan",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: selectedJenisBahan,
+                            hint: const Text("Pilih Jenis Bahan"),
+                            items: const ["Stretchy", "Non-Stretchy"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => selectedJenisBahan = val),
+                            decoration: _dropdownDecoration(),
+                          ),
                           const SizedBox(height: 20),
 
                           // 🔹 Tipe Size
@@ -320,25 +344,78 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                     height: 46,
 
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (brandController.text.isEmpty ||
-                            namaController.text.isEmpty ||
-                            jenisController.text.isEmpty) {
+                      onPressed: () async {
+                        if (brandController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Brand wajib diisi")),
+                          );
+                          return;
+                        }
+
+                        if (namaController.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("Semua field harus diisi"),
+                              content: Text("Nama pakaian wajib diisi"),
                             ),
                           );
                           return;
                         }
 
+                        if (jenisController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Jenis pakaian wajib diisi"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (selectedJenisBahan == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Jenis bahan wajib dipilih"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (generatedSizes.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Minimal pilih satu ukuran"),
+                            ),
+                          );
+                          return;
+                        }
+                        final cek = await FirebaseFirestore.instance
+                            .collection("pakaian")
+                            .where(
+                              "brand",
+                              isEqualTo: brandController.text.trim(),
+                            )
+                            .where(
+                              "nama",
+                              isEqualTo: namaController.text.trim(),
+                            )
+                            .get();
+
+                        if (cek.docs.isNotEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Data pakaian sudah ada"),
+                            ),
+                          );
+                          return;
+                        }
                         Navigator.push(
                           context,
+
                           MaterialPageRoute(
                             builder: (_) => DetailPakaianPage(
                               brand: brandController.text,
                               nama: namaController.text,
                               jenis: jenisController.text,
+                              jenisBahan: selectedJenisBahan!,
                               sizeType: selectedCategory,
                               sizes: generatedSizes,
                               currentIndex: 0,

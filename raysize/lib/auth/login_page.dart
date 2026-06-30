@@ -19,6 +19,27 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
 
   Future<void> login() async {
+    if (emailController.text.trim().isEmpty &&
+        passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email dan Password wajib diisi")),
+      );
+      return;
+    }
+
+    if (emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Email wajib diisi")));
+      return;
+    }
+
+    if (passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Password wajib diisi")));
+      return;
+    }
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
@@ -30,6 +51,13 @@ class _LoginPageState extends State<LoginPage> {
           .collection('users')
           .doc(userCredential.user!.uid)
           .get();
+
+      if (!userDoc.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Data pengguna tidak ditemukan")),
+        );
+        return;
+      }
 
       String role = userDoc['role'];
 
@@ -44,10 +72,33 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (_) => const HostMainPage()),
         );
       }
-    } catch (e) {
+    } on FirebaseAuthException catch (e) {
+      String message;
+
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Akun tidak ditemukan';
+          break;
+
+        case 'wrong-password':
+          message = 'Password salah';
+          break;
+
+        case 'invalid-credential':
+          message = 'Email atau password salah';
+          break;
+
+        case 'invalid-email':
+          message = 'Format email tidak valid';
+          break;
+
+        default:
+          message = 'Login gagal';
+      }
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Login gagal: $e")));
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
