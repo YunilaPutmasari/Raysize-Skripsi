@@ -13,112 +13,119 @@ class HomeAdminPage extends StatelessWidget {
       backgroundColor: const Color(0xFFFFF8E1),
 
       body: SafeArea(
-        child: Column(
-          children: [
-            // ================= HEADER =================
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFB88700), Color(0xFFFFD54F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // ================= HEADER =================
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFB88700), Color(0xFFFFD54F)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Image.asset('assets/images/raywise_logo.png', height: 60),
+
+                    const SizedBox(height: 16),
+
+                    const Text(
+                      "Halo Admin",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    const Text(
+                      "Kelola data dan sistem rekomendasi",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color.fromARGB(179, 255, 255, 255),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                children: [
-                  Image.asset('assets/images/raywise_logo.png', height: 60),
 
-                  const SizedBox(height: 16),
+              const SizedBox(height: 30),
 
-                  const Text(
-                    "Halo Admin",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+              // ================= ILUSTRASI =================
+              Image.asset('assets/images/boneka2.png', height: 150),
 
-                  const SizedBox(height: 6),
+              const SizedBox(height: 30),
 
-                  const Text(
-                    "Kelola data dan sistem rekomendasi",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color.fromARGB(179, 255, 255, 255),
-                    ),
-                  ),
-                ],
+              // ================= MENU CARD =================
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _FeatureCard(
+                  icon: Icons.child_care,
+                  title: "Input Data Untuk Rekomendasi",
+                  subtitle: "Kelola data anak untuk rekomendasi",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const InputDataAnakPage(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 16),
 
-            // ================= ILUSTRASI =================
-            Image.asset('assets/images/boneka2.png', height: 150),
-
-            const SizedBox(height: 30),
-
-            // ================= MENU CARD =================
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _FeatureCard(
-                icon: Icons.child_care,
-                title: "Input Data Untuk Rekomendasi",
-                subtitle: "Kelola data anak untuk rekomendasi",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const InputDataAnakPage(),
-                    ),
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _FeatureCard(
+                  icon: Icons.checkroom,
+                  title: "Input Data Pakaian",
+                  subtitle: "Kelola size dan data pakaian",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const InputDataPakaianPage(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _FeatureCard(
-                icon: Icons.checkroom,
-                title: "Input Data Pakaian",
-                subtitle: "Kelola size dan data pakaian",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const InputDataPakaianPage(),
-                    ),
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _FeatureCard(
+                  icon: Icons.table_view,
+                  title: "Lihat Data Pakaian",
+                  subtitle: "Tabel, edit dan hapus data pakaian",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PakaianListPage(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _FeatureCard(
-                icon: Icons.table_view,
-                title: "Lihat Data Pakaian",
-                subtitle: "Tabel, edit dan hapus data pakaian",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PakaianListPage()),
-                  );
-                },
-              ),
-            ),
-            const Spacer(),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );

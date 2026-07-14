@@ -968,6 +968,46 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // --- Dropdown Pilih Produk ---
+                          const Text(
+                            "Pilih Produk",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection("pakaian")
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const CircularProgressIndicator();
+                              }
+
+                              return DropdownButtonFormField<String>(
+                                value: _selectedPakaian,
+                                hint: const Text("Pilih Produk"),
+                                items: snapshot.data!.docs.map((doc) {
+                                  return DropdownMenuItem(
+                                    value: doc.id,
+                                    child: Text(doc["nama"] ?? "Produk"),
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  final QueryDocumentSnapshot doc = snapshot
+                                      .data!
+                                      .docs
+                                      .firstWhere((d) => d.id == v);
+                                  setState(() {
+                                    _selectedPakaian = v; // Simpan ID
+                                    _namaProduk = doc["nama"]; // Simpan Nama
+                                  });
+                                },
+                                decoration: _buildDropdownDecoration(),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
                           // --- Dropdown Satuan Usia ---
                           const Text(
                             "Satuan Usia",
@@ -1011,28 +1051,49 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
                           const SizedBox(height: 16),
 
-                          // --- Dropdown Jenis Kelamin ---
+                          // --- Jenis Kelamin ---
                           const Text(
                             "Jenis Kelamin",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<String>(
-                            value: _selectedGender,
-                            hint: const Text("Pilih Jenis Kelamin"),
-                            items: const ["Laki-laki", "Perempuan"]
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e),
+                          const SizedBox(height: 8),
+
+                          Row(
+                            children: ["Laki-laki", "Perempuan"].map((gender) {
+                              final bool selected = _selectedGender == gender;
+
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: gender == "Laki-laki" ? 8 : 0,
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (v) {
-                              setState(() => _selectedGender = v);
-                              _handleAntroRange();
-                            },
-                            decoration: _buildDropdownDecoration(),
+                                  child: ChoiceChip(
+                                    label: Text(
+                                      gender,
+                                      style: TextStyle(
+                                        color: selected
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    selected: selected,
+                                    selectedColor: const Color(0xFFB88700),
+                                    backgroundColor: const Color(0xFFFFF6CC),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide.none,
+                                    ),
+                                    onSelected: (_) {
+                                      setState(() {
+                                        _selectedGender = gender;
+                                      });
+                                      _handleAntroRange();
+                                    },
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
 
                           const SizedBox(height: 20),
@@ -1051,15 +1112,22 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                               ),
                               min: _minBB,
                               max: _maxBB == 0 ? 1 : _maxBB,
+                              activeColor: const Color(
+                                0xFFB88700,
+                              ), // Warna coklat
+                              inactiveColor:
+                                  Colors.brown.shade200, // Coklat muda
+                              thumbColor: const Color(
+                                0xFFB88700,
+                              ), // Bulatan slider
                               onChanged: (val) {
                                 setState(() => _selectedBB = val);
                               },
                             ),
                             Text(
-                              "Dipilih: ${_selectedBB?.toStringAsFixed(1)} kg",
+                              "Dipilih:  ${(_selectedBB ?? _minBB).toStringAsFixed(1)} kg",
                             ),
                           ] else ...[
-                            // Mode Input Manual (usia > 5 tahun)
                             _buildInputField("Berat Badan (kg)", _bbController),
                           ],
 
@@ -1076,12 +1144,15 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                               value: _selectedTB ?? _minTB,
                               min: _minTB,
                               max: _maxTB,
+                              activeColor: const Color(0xFFB88700),
+                              inactiveColor: Colors.brown.shade200,
+                              thumbColor: const Color(0xFFB88700),
                               onChanged: (val) {
                                 setState(() => _selectedTB = val);
                               },
                             ),
                             Text(
-                              "Dipilih: ${_selectedTB?.toStringAsFixed(1)} cm",
+                              "Dipilih: ${(_selectedTB ?? _minTB).toStringAsFixed(1)} cm",
                             ),
                           ] else ...[
                             // Mode Input Manual
@@ -1092,45 +1163,6 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                           ],
 
                           const SizedBox(height: 20),
-
-                          // --- Dropdown Pilih Produk ---
-                          const Text(
-                            "Pilih Produk",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 6),
-                          StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection("pakaian")
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) {
-                                return const CircularProgressIndicator();
-                              }
-
-                              return DropdownButtonFormField<String>(
-                                value: _selectedPakaian,
-                                hint: const Text("Pilih Produk"),
-                                items: snapshot.data!.docs.map((doc) {
-                                  return DropdownMenuItem(
-                                    value: doc.id,
-                                    child: Text(doc["nama"] ?? "Produk"),
-                                  );
-                                }).toList(),
-                                onChanged: (v) {
-                                  final QueryDocumentSnapshot doc = snapshot
-                                      .data!
-                                      .docs
-                                      .firstWhere((d) => d.id == v);
-                                  setState(() {
-                                    _selectedPakaian = v; // Simpan ID
-                                    _namaProduk = doc["nama"]; // Simpan Nama
-                                  });
-                                },
-                                decoration: _buildDropdownDecoration(),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
