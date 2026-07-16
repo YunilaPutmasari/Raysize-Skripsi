@@ -1,21 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:raysize/admin/admin_main_page.dart';
 import 'package:raysize/host/host_main_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'firebase_options.dart';
+
 import 'auth/login_page.dart';
-import 'admin/home_admin_page.dart';
-import 'host/home_host_page.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const RaysizeApp());
 }
 
@@ -39,52 +34,45 @@ class AuthChecker extends StatefulWidget {
 }
 
 class _AuthCheckerState extends State<AuthChecker> {
-
   @override
   void initState() {
     super.initState();
-    checkLogin();
+    // Menunggu frame pertama agar navigasi tidak berjalan saat widget dibangun.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkLogin();
+    });
   }
 
-Future<void> checkLogin() async {
-  final user = FirebaseAuth.instance.currentUser;
+  Future<void> checkLogin() async {
+    final user = FirebaseAuth.instance.currentUser;
 
-  if (user == null) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
-  } else {
-    // 🔥 Ambil role langsung dari Firestore
+    if (user == null) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+      return;
+    }
+
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
+    if (!mounted) return;
 
-    String role = doc['role'];
-
-  if (role == "admin") {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const AdminMainPage()),
-  );
-} else {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const HostMainPage()),
-  );
-}
-
+    final role = (doc.data()?['role'] ?? '').toString();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            role == 'admin' ? const AdminMainPage() : const HostMainPage(),
+      ),
+    );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

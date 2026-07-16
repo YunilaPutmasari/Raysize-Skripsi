@@ -8,6 +8,10 @@ class DetailPakaianPage extends StatefulWidget {
   final String jenis;
   final String jenisBahan;
   final String sizeType;
+  final String genderPakaian;
+  final int? usiaMinBulan;
+  final int? usiaMaxBulan;
+
   final List<String> sizes;
   final int currentIndex;
   final List<Map<String, dynamic>> sizeData;
@@ -22,6 +26,9 @@ class DetailPakaianPage extends StatefulWidget {
     required this.sizes,
     required this.currentIndex,
     required this.sizeData,
+    required this.genderPakaian,
+    this.usiaMinBulan,
+    this.usiaMaxBulan,
   });
 
   @override
@@ -240,6 +247,10 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                                 sizes: widget.sizes,
                                 currentIndex: widget.currentIndex + 1,
                                 sizeData: updatedSizeData,
+
+                                genderPakaian: widget.genderPakaian,
+                                usiaMinBulan: widget.usiaMinBulan,
+                                usiaMaxBulan: widget.usiaMaxBulan,
                               ),
                             ),
                           );
@@ -255,6 +266,9 @@ class _DetailPakaianPageState extends State<DetailPakaianPage> {
                                 'jenisBahan': widget.jenisBahan,
                                 'sizeType': widget.sizeType,
                                 'sizes': updatedSizeData,
+                                'genderPakaian': widget.genderPakaian,
+                                'usiaMinBulan': widget.usiaMinBulan,
+                                'usiaMaxBulan': widget.usiaMaxBulan,
                                 'createdAt': FieldValue.serverTimestamp(),
                               });
 

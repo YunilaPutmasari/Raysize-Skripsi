@@ -120,7 +120,7 @@ class _HasilRekomendasiPageState extends State<HasilRekomendasiPage> {
     // Ease berdasarkan jenis bahan
     final double easeLD = widget.jenisBahan == "Non-Stretchy" ? 3.0 : 1.0;
 
-    final double easePB = widget.jenisBahan == "Non-Stretchy" ? 6.0 : 1.0;
+    final double easePB = widget.jenisBahan == "Non-Stretchy" ? 3.0 : 1.0;
     String rekomendasiStatus = "Sesuai / Pas";
     Color statusColor = Colors.green;
 

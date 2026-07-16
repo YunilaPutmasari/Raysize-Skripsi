@@ -15,6 +15,10 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
   final namaController = TextEditingController();
   final jenisController = TextEditingController();
 
+  // 🔹 BARU: controller untuk rentang usia target produk
+  final usiaMinController = TextEditingController();
+  final usiaMaxController = TextEditingController();
+
   // 🔹 MASTER LIST
   final List<String> hurufSizes = [
     "NB",
@@ -79,6 +83,10 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
   String? endSize;
   String? selectedJenisBahan; // "Stretchy" | "Non-Stretchy"
 
+  // 🔹 BARU: jenis kelamin target produk & satuan usia
+  String? selectedGenderPakaian; // "Laki-laki" | "Perempuan" | "Unisex"
+  String usiaSatuanPakaian = "Bulan"; // "Bulan" | "Tahun"
+
   List<String> generatedSizes = [];
 
   // 🔹 Ambil list sesuai kategori
@@ -116,9 +124,27 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
     }
   }
 
+  /// Konversi nilai usia (sesuai satuan yang dipilih) ke dalam bulan.
+  /// Return null kalau field kosong / tidak valid.
+  int? _usiaKeBulan(String text) {
+    final int? nilai = int.tryParse(text.trim());
+    if (nilai == null) return null;
+    return usiaSatuanPakaian == "Tahun" ? nilai * 12 : nilai;
+  }
+
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    brandController.dispose();
+    namaController.dispose();
+    jenisController.dispose();
+    usiaMinController.dispose();
+    usiaMaxController.dispose();
+    super.dispose();
   }
 
   @override
@@ -194,6 +220,68 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                                 setState(() => selectedJenisBahan = val),
                             decoration: _dropdownDecoration(),
                           ),
+                          const SizedBox(height: 20),
+
+                          // 🔹 BARU: Dropdown Target Jenis Kelamin
+                          // Dipakai di halaman Input Data Anak supaya begitu
+                          // produk dipilih, langsung kelihatan produk ini
+                          // untuk cewek/cowok/unisex.
+                          const Text(
+                            "Target Jenis Kelamin",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: selectedGenderPakaian,
+                            hint: const Text("Pilih Target Jenis Kelamin"),
+                            items: const ["Laki-laki", "Perempuan", "Unisex"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => selectedGenderPakaian = val),
+                            decoration: _dropdownDecoration(),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 🔹 BARU: Rentang Usia Target Produk
+                          const Text(
+                            "Rentang Usia Target",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: usiaSatuanPakaian,
+                            items: const ["Bulan", "Tahun"]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) => setState(
+                              () => usiaSatuanPakaian = val ?? "Bulan",
+                            ),
+                            decoration: _dropdownDecoration(),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _field("Usia Dari", usiaMinController),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _field("Usia Sampai", usiaMaxController),
+                              ),
+                            ],
+                          ),
+
                           const SizedBox(height: 20),
 
                           // 🔹 Tipe Size
@@ -379,6 +467,56 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                           return;
                         }
 
+                        // 🔹 BARU: validasi target jenis kelamin
+                        if (selectedGenderPakaian == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Target jenis kelamin wajib dipilih",
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // 🔹 BARU: validasi & konversi rentang usia (opsional,
+                        // tapi kalau salah satu diisi, keduanya harus valid)
+                        final int? usiaMinBulan = _usiaKeBulan(
+                          usiaMinController.text,
+                        );
+                        final int? usiaMaxBulan = _usiaKeBulan(
+                          usiaMaxController.text,
+                        );
+
+                        final bool adaInputUsia =
+                            usiaMinController.text.trim().isNotEmpty ||
+                            usiaMaxController.text.trim().isNotEmpty;
+
+                        if (adaInputUsia &&
+                            (usiaMinBulan == null || usiaMaxBulan == null)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Rentang usia tidak valid, isi keduanya dengan angka",
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (usiaMinBulan != null &&
+                            usiaMaxBulan != null &&
+                            usiaMinBulan > usiaMaxBulan) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Usia Dari tidak boleh lebih besar dari Usia Sampai",
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
                         if (generatedSizes.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -407,6 +545,7 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                           );
                           return;
                         }
+                        if (!context.mounted) return;
                         Navigator.push(
                           context,
 
@@ -416,6 +555,11 @@ class _InputDataPakaianPageState extends State<InputDataPakaianPage> {
                               nama: namaController.text,
                               jenis: jenisController.text,
                               jenisBahan: selectedJenisBahan!,
+                              // 🔹 BARU: diteruskan ke DetailPakaianPage supaya
+                              // ikut disimpan ke Firestore
+                              genderPakaian: selectedGenderPakaian!,
+                              usiaMinBulan: usiaMinBulan,
+                              usiaMaxBulan: usiaMaxBulan,
                               sizeType: selectedCategory,
                               sizes: generatedSizes,
                               currentIndex: 0,

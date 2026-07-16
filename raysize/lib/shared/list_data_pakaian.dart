@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:raysize/admin/edit_pakaian_page.dart';
 
 class PakaianListPage extends StatelessWidget {
   const PakaianListPage({super.key});
@@ -170,7 +171,15 @@ class PakaianListPage extends StatelessWidget {
                       children: [
                         ElevatedButton.icon(
                           onPressed: () {
-                            _showEditDialog(context, doc.id, data);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditPakaianPage(
+                                  documentId: doc.id,
+                                  pakaian: data,
+                                ),
+                              ),
+                            );
                           },
                           icon: const Icon(
                             Icons.edit,
@@ -227,116 +236,4 @@ class PakaianListPage extends StatelessWidget {
     );
   }
 
-  static void _showEditDialog(
-    BuildContext context,
-    String docId,
-    Map<String, dynamic> data,
-  ) {
-    final brandController = TextEditingController(text: data['brand']);
-    final namaController = TextEditingController(text: data['nama']);
-    final jenisController = TextEditingController(text: data['jenis']);
-    String selectedJenisBahanEdit = data['jenisBahan'] ?? 'Stretchy';
-
-    showDialog(
-      context: context,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, setLocalState) {
-            return AlertDialog(
-              title: const Text("Edit Data Pakaian"),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: brandController,
-                      decoration: const InputDecoration(labelText: "Brand"),
-                    ),
-                    TextField(
-                      controller: namaController,
-                      decoration: const InputDecoration(labelText: "Nama"),
-                    ),
-                    TextField(
-                      controller: jenisController,
-                      decoration: const InputDecoration(labelText: "Jenis"),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedJenisBahanEdit,
-                      decoration: const InputDecoration(
-                        labelText: "Jenis Bahan",
-                      ),
-                      items: const ["Stretchy", "Non-Stretchy"]
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e,
-                              child: Text(e),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        setLocalState(() => selectedJenisBahanEdit = v!);
-                      },
-                    ),
-                    if ((data['jenisBahan'] == null))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            border: Border.all(color: Colors.amber),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: Colors.amber,
-                              ),
-                              SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  "Produk lama: jenis bahan belum di-set. "
-                                  "Pilih sesuai jenis kainnya.",
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Batal"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await FirebaseFirestore.instance
-                        .collection('pakaian')
-                        .doc(docId)
-                        .update({
-                          'brand': brandController.text,
-                          'nama': namaController.text,
-                          'jenis': jenisController.text,
-                          'jenisBahan': selectedJenisBahanEdit,
-                        });
-
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Simpan"),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 }

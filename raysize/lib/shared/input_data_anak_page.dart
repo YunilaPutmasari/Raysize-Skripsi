@@ -27,6 +27,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   String? _selectedPakaian; // ID produk pakaian yang dipilih
   String? _namaProduk; // Nama produk pakaian
   String? _selectedSatuanUsia; // Satuan usia (Bulan/Tahun)
+  Map<String, dynamic>? _produkDipilih; // Detail produk untuk informasi cepat
 
   // --- Data standar dari antro.json ---
   Map<String, dynamic> _standarBB = {}; // Standar berat badan
@@ -97,12 +98,150 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     );
   }
 
+  Widget _dropdownUsia() {
+    final isTahun = _selectedSatuanUsia == 'Tahun';
+    final semuaPilihan = isTahun
+        ? <int>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        : List<int>.generate(121, (index) => index);
+    final produk = _produkDipilih;
+    final pilihan = produk == null
+        ? semuaPilihan
+        : semuaPilihan
+              .where(
+                (usia) =>
+                    _usiaMasukRentangProduk(isTahun ? usia * 12 : usia, produk),
+              )
+              .toList();
+    final usiaTerpilih = int.tryParse(_usiaController.text.trim());
+
+    if (_selectedSatuanUsia == null) {
+      return const Text(
+        'Pilih satuan usia terlebih dahulu.',
+        style: TextStyle(color: Colors.black54),
+      );
+    }
+
+    if (pilihan.isEmpty) {
+      return Text(
+        'Rentang produk ini tidak tersedia dalam satuan ${isTahun ? 'tahun' : 'bulan'}. Pilih satuan lainnya.',
+        style: const TextStyle(color: Colors.black54),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (produk != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Pilihan mengikuti produk: ${_rentangUsiaProduk(produk)}',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ),
+        DropdownButtonFormField<int>(
+          value: pilihan.contains(usiaTerpilih) ? usiaTerpilih : null,
+          hint: const Text('Pilih usia yang sesuai'),
+          isExpanded: true,
+          menuMaxHeight: 220,
+          itemHeight: 54,
+          borderRadius: BorderRadius.circular(16),
+          dropdownColor: const Color(0xFFFFF6CC),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Color(0xFFB88700),
+            size: 28,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFFFF6CC),
+            prefixIcon: const Icon(
+              Icons.cake_rounded,
+              color: Color(0xFFB88700),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          items: pilihan
+              .map(
+                (usia) => DropdownMenuItem(
+                  value: usia,
+                  child: Text(
+                    '$usia ${isTahun ? 'Tahun' : 'Bulan'}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (usia) {
+            if (usia == null) return;
+            setState(() => _usiaController.text = usia.toString());
+            _perbaruiAntroSetelahBuild();
+          },
+        ),
+      ],
+    );
+  }
+
   /// Mengecek apakah mode antro (usia <= 60 bulan / 5 tahun)
   bool _isAntroMode() {
     final int usia = int.tryParse(_usiaController.text) ?? 0;
     final int usiaBulan = _selectedSatuanUsia == "Tahun" ? usia * 12 : usia;
     return usiaBulan <= 60;
   }
+
+  int? _usiaDalamBulan() {
+    final usia = int.tryParse(_usiaController.text.trim());
+    if (usia == null) return null;
+    return _selectedSatuanUsia == 'Tahun' ? usia * 12 : usia;
+  }
+
+  String _rentangUsiaProduk(Map<String, dynamic> produk) {
+    final min = produk['usiaMinBulan'] as num?;
+    final max = produk['usiaMaxBulan'] as num?;
+    if (min == null || max == null) return 'Semua usia';
+    return '${min.toInt()} - ${max.toInt()} bulan';
+  }
+
+  bool _produkCocokUntukAnak(Map<String, dynamic> produk) {
+    final genderProduk = (produk['genderPakaian'] ?? 'Unisex').toString();
+    final usiaAnak = _usiaDalamBulan();
+    final min = (produk['usiaMinBulan'] as num?)?.toInt();
+    final max = (produk['usiaMaxBulan'] as num?)?.toInt();
+    final genderCocok =
+        _selectedGender == null ||
+        genderProduk == 'Unisex' ||
+        genderProduk == _selectedGender;
+    final usiaCocok =
+        usiaAnak == null ||
+        (min == null || max == null) ||
+        (usiaAnak >= min && usiaAnak <= max);
+    return genderCocok && usiaCocok;
+  }
+
+  bool _usiaMasukRentangProduk(int usiaBulan, Map<String, dynamic> produk) {
+    final min = (produk['usiaMinBulan'] as num?)?.toInt();
+    final max = (produk['usiaMaxBulan'] as num?)?.toInt();
+    return min == null || max == null || (usiaBulan >= min && usiaBulan <= max);
+  }
+
+  List<String> _satuanUsiaTersedia() {
+    final maxUsiaBulan = (_produkDipilih?['usiaMaxBulan'] as num?)?.toInt();
+    // Produk bayi sampai tepat 12 bulan cukup memakai satuan bulan.
+    // Pilihan tahun baru muncul bila produknya mencakup usia lebih dari 1 tahun.
+    if (maxUsiaBulan != null && maxUsiaBulan <= 12) return ['Bulan'];
+    return ['Bulan', 'Tahun'];
+  }
+
+  bool get _perluPilihGenderAnak =>
+      _produkDipilih != null &&
+      (_produkDipilih!['genderPakaian'] ?? 'Unisex').toString() == 'Unisex';
 
   // ==========================================================================
   // SECTION 4: DATA LOADING METHODS
@@ -534,6 +673,14 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     }
   }
 
+  /// Menunda pembaruan slider sampai frame saat ini selesai dibangun.
+  /// Ini mencegah setState dipanggil ketika menu dropdown sedang ditutup.
+  void _perbaruiAntroSetelahBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _handleAntroRange();
+    });
+  }
+
   /// Menghitung estimasi lebar dada & panjang baju
   /// Dari BB & TB anak menggunakan rumus proporsional sederhana
   ({double lebarDada, double panjangBaju}) _estimasiTubuhDariAntro(
@@ -544,8 +691,15 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   ) {
     // Stretchy
     if (jenisBahan == "Stretchy") {
-      return (lebarDada: tinggi * 0.30, panjangBaju: tinggi * 0.32);
+      final double medianBB = (bbParams["median"] as num).toDouble();
+      final double koreksiBB =
+          (berat - medianBB) * 0.05; // lebih kecil dari non-stretchy (0.10)
+      return (
+        lebarDada: (tinggi * 0.30) + koreksiBB,
+        panjangBaju: tinggi * 0.32,
+      );
     }
+
     final double medianBB = (bbParams["median"] as num).toDouble();
     double koreksiBB = (berat - medianBB) * 0.10;
 
@@ -578,10 +732,6 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     }
   }
 
-  /// Menghitung ease allowance (cm) berdasarkan jenis bahan pakaian.
-  /// Non-stretchy butuh ruang lebih supaya tidak terlalu ketat saat dipakai.
-  /// - Stretchy (kaos, legging, spandex): LD +2, PB +4 (pas, mengikuti tubuh)
-  /// - Non-Stretchy (sweater, jaket, denim): LD +5, PB +7 (longgar, untuk layering)
   ({double easeLebar, double easePanjang}) _getEase(String jenisBahan) {
     switch (jenisBahan) {
       case "Non-Stretchy":
@@ -614,6 +764,9 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     final ({double easeLebar, double easePanjang}) ease = _getEase(jenisBahan);
     final double minP = targetPanjang + ease.easePanjang;
     final double minL = targetLebar + ease.easeLebar;
+    const double toleransiPanjangLebih = 5.0;
+    final double panjangMaksimumToleransi =
+        targetPanjang + toleransiPanjangLebih;
 
     debugPrint("--- MULAI MATCHING SIZE (bahan=$jenisBahan) ---");
     debugPrint("Target Tubuh -> P: $targetPanjang, LD: $targetLebar");
@@ -632,9 +785,22 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       final double l = s['lebarDada'] as double;
       debugPrint("Cek Size ${s['size']}: P($p) LD($l)");
 
-      if (p >= minP && l >= minL) {
-        // Selisih antara size pakaian dan target (semakin kecil = semakin pas)
-        final double score = (p - targetPanjang) + (l - targetLebar);
+      final bool panjangIdeal = p >= minP;
+      // Perbedaan panjang hingga 3 cm masih dapat diterima, asalkan lebar
+      // dada memenuhi allowance.
+      final bool panjangDitoleransi =
+          p >= targetPanjang - toleransiPanjangLebih &&
+          p <= panjangMaksimumToleransi;
+      final bool lebarDadaMemenuhi = l >= minL;
+
+      if (lebarDadaMemenuhi && (panjangIdeal || panjangDitoleransi)) {
+        // Panjang ideal tetap didahulukan; beda panjang hingga 3 cm menjadi
+        // pilihan cadangan dengan patokan utama lebar dada.
+        final double penaltiToleransi = panjangIdeal ? 0 : 1000;
+        final double score =
+            penaltiToleransi +
+            (p - targetPanjang).abs() +
+            (l - targetLebar).abs();
         if (score < bestScore) {
           bestScore = score;
           bestFit = s;
@@ -654,10 +820,9 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     final double selisihPanjang = terbesar['panjang'] - targetPanjang;
     final double selisihLebar = terbesar['lebarDada'] - targetLebar;
 
-    const double batasTolakPanjang = -10.0;
-    const double batasTolakLebar = -8.0;
-
-    if (selisihPanjang < batasTolakPanjang || selisihLebar < batasTolakLebar) {
+    if (selisihPanjang < 0 ||
+        selisihPanjang > toleransiPanjangLebih ||
+        terbesar['lebarDada'] < minL) {
       debugPrint("❌ DITOLAK: Ukuran tubuh terlalu besar untuk produk ini.");
       return null;
     }
@@ -674,6 +839,117 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   // Method utama untuk proses rekomendasi
   // ==========================================================================
 
+  Future<void> _tampilkanDialogUkuranTidakTersedia({
+    required String pesan,
+    required double estimasiLebar,
+    required double estimasiPanjang,
+    required String jenisBahan,
+    double? panjangBaju,
+    double? lebarDadaBaju,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7C27D),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 56,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Ukuran Tidak Tersedia',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+              _dialogInfoCard('Estimasi Hitungan Fuzzy', [
+                'Lebar Dada: ${_formatCmForDialog(estimasiLebar + _getEase(jenisBahan).easeLebar)}',
+                'Panjang Baju: ${_formatCmForDialog(estimasiPanjang + _getEase(jenisBahan).easePanjang)}',
+              ]),
+              if (panjangBaju != null && lebarDadaBaju != null) ...[
+                const SizedBox(height: 12),
+                _dialogInfoCard('Ukuran Baju yang Diperiksa', [
+                  'Lebar Dada Baju: ${_formatCmForDialog(lebarDadaBaju)}',
+                  'Panjang Baju: ${_formatCmForDialog(panjangBaju)}',
+                ]),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                pesan,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black87),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB88700),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: const Text('Cek Produk Lain'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatCmForDialog(double nilai) => '${nilai.toStringAsFixed(1)} cm';
+
+  Widget _dialogInfoCard(String title, List<String> items) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const Divider(),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.straighten, size: 14, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(item),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _prosesRekomendasi() async {
     // Cek apakah data sudah dimuat
     if (!_isDataLoaded) return;
@@ -684,6 +960,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
 
     // Validasi input tidak boleh kosong
     if (_usiaController.text.isEmpty ||
+        _selectedSatuanUsia == null ||
         _selectedGender == null ||
         _selectedPakaian == null ||
         (usiaBulan > 60 &&
@@ -692,6 +969,15 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Semua data harus diisi")));
+      return;
+    }
+
+    if (_produkDipilih != null && !_produkCocokUntukAnak(_produkDipilih!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih pakaian yang sesuai dengan rentang usia anak.'),
+        ),
+      );
       return;
     }
 
@@ -821,43 +1107,39 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
       final Map<String, dynamic>? sizeDipilih = filteredSizes
           .cast<Map<String, dynamic>?>()
           .firstWhere((s) => s?['size'] == sizeRekomendasi, orElse: () => null);
+
       if (sizeDipilih != null && sizeDipilih.isNotEmpty) {
         final double pBaju = (sizeDipilih['panjang'] as num).toDouble();
         final double lBaju = (sizeDipilih['lebarDada'] as num).toDouble();
-        // Tolak jika baju lebih kecil dari tubuh pada dimensi APAPUN
-        // (mengabaikan ease allowance — kalau tanpa ease sudah lebih kecil,
-        //  sudah pasti tidak muat).
-        if (pBaju < estimasiPanjang || lBaju < estimasiLebar) {
-          debugPrint(
-            "❌ Size $sizeRekomendasi lebih kecil dari tubuh: "
-            "ΔP=${(pBaju - estimasiPanjang).toStringAsFixed(1)}, "
-            "ΔL=${(lBaju - estimasiLebar).toStringAsFixed(1)}",
-          );
+
+        const toleransiPanjang = 5.0;
+
+        // Baju boleh lebih pendek/lebih panjang maksimal 3 cm.
+        final bool panjangDalamToleransi =
+            (pBaju - estimasiPanjang).abs() <= toleransiPanjang;
+
+        // Jika panjang masih dalam toleransi, LD cukup minimal sama dengan
+        // estimasi LD anak. Di luar toleransi, tetap gunakan ease allowance.
+        final double minLebarDadaBaju = panjangDalamToleransi
+            ? estimasiLebar
+            : estimasiLebar + _getEase(jenisBahan).easeLebar;
+
+        // Tolak hanya bila baju lebih pendek dari 3 cm atau LD tidak cukup.
+        final bool panjangTerlaluPendek =
+            pBaju < estimasiPanjang - toleransiPanjang;
+
+        if (panjangTerlaluPendek || lBaju < minLebarDadaBaju) {
           if (!mounted) return;
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFFE7C27D),
-              title: const Text(
-                "Ukuran Tidak Tersedia",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: Text(
-                "Ukuran tubuh anak (Lebar Dada ${estimasiLebar.toStringAsFixed(1)} cm, "
-                "Panjang Baju ${estimasiPanjang.toStringAsFixed(1)} cm) "
-                "melebihi rentang size produk \"${_namaProduk ?? 'ini'}\". "
-                "Silakan pilih produk dengan rentang ukuran yang lebih besar.",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text(
-                    "OK",
-                    style: TextStyle(color: Color(0xFFB88700)),
-                  ),
-                ),
-              ],
-            ),
+
+          await _tampilkanDialogUkuranTidakTersedia(
+            pesan:
+                'Ukuran yang dipilih belum cukup untuk kebutuhan tubuh anak. '
+                'Silakan pilih produk dengan rentang ukuran yang lebih besar.',
+            estimasiLebar: estimasiLebar,
+            estimasiPanjang: estimasiPanjang,
+            lebarDadaBaju: lBaju,
+            panjangBaju: pBaju,
+            jenisBahan: jenisBahan,
           );
           return;
         }
@@ -869,30 +1151,13 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
     // └─────────────────────────────────────────────────────────────────┘
     if (sizeRekomendasi == null) {
       if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFFE7C27D),
-          title: const Text(
-            "Ukuran Tidak Tersedia",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            "Ukuran tubuh anak (Lebar Dada ${estimasiLebar.toStringAsFixed(1)} cm, "
-            "Panjang Baju ${estimasiPanjang.toStringAsFixed(1)} cm) "
-            "terlalu besar untuk produk \"${_namaProduk ?? 'ini'}\". "
-            "Silakan pilih produk dengan rentang ukuran yang lebih besar.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text(
-                "OK",
-                style: TextStyle(color: Color(0xFFB88700)),
-              ),
-            ),
-          ],
-        ),
+      await _tampilkanDialogUkuranTidakTersedia(
+        pesan:
+            'Estimasi tubuh anak belum masuk ke rentang ukuran produk "${_namaProduk ?? 'ini'}". '
+            'Silakan cek produk lain yang ukurannya lebih besar.',
+        estimasiLebar: estimasiLebar,
+        estimasiPanjang: estimasiPanjang,
+        jenisBahan: jenisBahan,
       );
       return;
     }
@@ -929,6 +1194,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
     final double cardWidth = size.width * 0.85;
+    final satuanTersedia = _satuanUsiaTersedia();
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -961,6 +1227,7 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                     child: Container(
                       width: cardWidth,
                       padding: const EdgeInsets.all(20),
+
                       decoration: BoxDecoration(
                         color: const Color(0xFFE7C27D).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(30),
@@ -982,94 +1249,125 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                               if (!snapshot.hasData) {
                                 return const CircularProgressIndicator();
                               }
+                              const SizedBox(height: 20);
 
                               return DropdownButtonFormField<String>(
                                 value: _selectedPakaian,
                                 hint: const Text("Pilih Produk"),
+                                isExpanded: true,
+
+                                menuMaxHeight: 220,
+
+                                borderRadius: BorderRadius.circular(16),
+                                dropdownColor: const Color(0xFFFFF6CC),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Color(0xFFB88700),
+                                  size: 28,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+
+                                  fillColor: const Color(0xFFFFF6CC),
+                                  prefixIcon: const Icon(
+                                    Icons.checkroom_rounded,
+                                    color: Color(0xFFB88700),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
                                 items: snapshot.data!.docs.map((doc) {
-                                  return DropdownMenuItem(
+                                  return DropdownMenuItem<String>(
                                     value: doc.id,
-                                    child: Text(doc["nama"] ?? "Produk"),
+                                    child: Text(
+                                      doc["nama"] ?? "Produk",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   );
                                 }).toList(),
                                 onChanged: (v) {
-                                  final QueryDocumentSnapshot doc = snapshot
-                                      .data!
-                                      .docs
-                                      .firstWhere((d) => d.id == v);
+                                  if (v == null) return;
+
+                                  final doc = snapshot.data!.docs.firstWhere(
+                                    (d) => d.id == v,
+                                  );
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  final genderProduk =
+                                      (data['genderPakaian'] ?? 'Unisex')
+                                          .toString();
+
                                   setState(() {
-                                    _selectedPakaian = v; // Simpan ID
-                                    _namaProduk = doc["nama"]; // Simpan Nama
+                                    _selectedPakaian = v;
+                                    _namaProduk = data['nama'] as String?;
+                                    _produkDipilih = {
+                                      'genderPakaian': genderProduk,
+                                      'usiaMinBulan': data['usiaMinBulan'],
+                                      'usiaMaxBulan': data['usiaMaxBulan'],
+                                    };
+
+                                    // Produk sudah gender-spesifik? Auto-set, user gak perlu pilih lagi.
+                                    // Kalau Unisex, kosongkan supaya user diminta pilih.
+                                    _selectedGender = genderProduk != 'Unisex'
+                                        ? genderProduk
+                                        : null;
+
+                                    // Reset usia & satuan lama karena rentang produk baru bisa beda
+                                    _usiaController.clear();
+                                    if (!_satuanUsiaTersedia().contains(
+                                      _selectedSatuanUsia,
+                                    )) {
+                                      _selectedSatuanUsia = null;
+                                    }
+
+                                    // Reset slider BB/TB lama supaya tidak nampilin nilai basi dari produk sebelumnya
+                                    _selectedBB = null;
+                                    _selectedTB = null;
+                                    _minBB = 0;
+                                    _maxBB = 0;
+                                    _minTB = 0;
+                                    _maxTB = 0;
                                   });
+
+                                  // Kalau gender & usia udah lengkap (misal gender ke-auto-set), langsung
+                                  // hitung ulang rentang BB/TB standar WHO tanpa nunggu user klik apa-apa.
+                                  _perbaruiAntroSetelahBuild();
                                 },
-                                decoration: _buildDropdownDecoration(),
                               );
                             },
                           ),
 
                           const SizedBox(height: 16),
-                          // --- Dropdown Satuan Usia ---
+                          // --- Pilihan Satuan Usia ---
                           const Text(
                             "Satuan Usia",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<String>(
-                            value: _selectedSatuanUsia,
-                            hint: const Text("Pilih Satuan"),
-                            items: const ["Bulan", "Tahun"]
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedSatuanUsia = v),
-                            decoration: _buildDropdownDecoration(),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // --- Input Usia ---
-                          TextField(
-                            controller: _usiaController,
-                            onChanged: (_) => _handleAntroRange(),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: const Color(0xFFFFF6CC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // --- Jenis Kelamin ---
-                          const Text(
-                            "Jenis Kelamin",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
                           const SizedBox(height: 8),
-
                           Row(
-                            children: ["Laki-laki", "Perempuan"].map((gender) {
-                              final bool selected = _selectedGender == gender;
-
+                            children: satuanTersedia.asMap().entries.map((
+                              entry,
+                            ) {
+                              final satuan = entry.value;
+                              final selected = _selectedSatuanUsia == satuan;
                               return Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                    right: gender == "Laki-laki" ? 8 : 0,
+                                    right: entry.key < satuanTersedia.length - 1
+                                        ? 8
+                                        : 0,
                                   ),
                                   child: ChoiceChip(
                                     label: Text(
-                                      gender,
+                                      satuan,
                                       style: TextStyle(
                                         color: selected
                                             ? Colors.white
@@ -1085,10 +1383,10 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                                       side: BorderSide.none,
                                     ),
                                     onSelected: (_) {
-                                      setState(() {
-                                        _selectedGender = gender;
-                                      });
-                                      _handleAntroRange();
+                                      setState(
+                                        () => _selectedSatuanUsia = satuan,
+                                      );
+                                      _perbaruiAntroSetelahBuild();
                                     },
                                   ),
                                 ),
@@ -1096,7 +1394,69 @@ class _InputDataAnakPageState extends State<InputDataAnakPage> {
                             }).toList(),
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
+
+                          // --- Dropdown usia sesuai rentang produk ---
+                          const Text(
+                            'Usia Anak',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 8),
+                          _dropdownUsia(),
+
+                          const SizedBox(height: 16),
+
+                          // Gender mengikuti produk; hanya Unisex yang perlu dipilih pengguna.
+                          if (_perluPilihGenderAnak) ...[
+                            const Text(
+                              "Jenis Kelamin",
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: ["Laki-laki", "Perempuan"].map((
+                                gender,
+                              ) {
+                                final bool selected = _selectedGender == gender;
+
+                                return Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      right: gender == "Laki-laki" ? 8 : 0,
+                                    ),
+                                    child: ChoiceChip(
+                                      label: Text(
+                                        gender,
+                                        style: TextStyle(
+                                          color: selected
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      selected: selected,
+                                      selectedColor: const Color(0xFFB88700),
+                                      backgroundColor: const Color(0xFFFFF6CC),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide.none,
+                                      ),
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _selectedGender = gender;
+                                        });
+                                        _perbaruiAntroSetelahBuild();
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 20),
+                          ] else if (_produkDipilih != null)
+                            ...[
+                          ] else
+                            const SizedBox(height: 4),
 
                           // --- Input Berat Badan ---
                           if (_isAntroMode()) ...[
